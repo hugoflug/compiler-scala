@@ -17,6 +17,15 @@ class ParserTest extends org.scalatest.FunSuite {
     assertFail("02", Parser.intLit(_))
   }
 
+  test("method call with arguments") {
+    assertSuccess("foo.len(foo,bar)", Parser.exprInfo(_))
+  }
+
+  test("plusminus") {
+    val Parsed.Success(value, index) = parse("3-1-1+4-2+6*7-3", Parser.plusMinus2(_))
+    println(value)
+  }
+
   private def assertSuccess(s: String, parseFn: P[_] => P[Any]) = {
     val Parsed.Success(_, index) = parse(s, parseFn)
     assert(index == s.length)
