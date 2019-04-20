@@ -10,8 +10,10 @@ case class NewArray(arraySize: Expr) extends Expr
 case class NewObject(typeName: Identifier) extends Expr
 case class Parens(expr: Expr) extends Expr
 case class ArrayLength(array: Expr) extends Expr
-case class MethodCall(objectName: Expr, methodName: Identifier, argList: Seq[Expr])
-case class ArrayLookup(array: Expr, index: Expr)
+case class MethodCall(objectName: Expr, methodName: Identifier, args: Seq[Expr]) extends Expr
+case class ArrayLookup(array: Expr, index: Expr) extends Expr
+case class Not(expr: Expr) extends Expr
+case class Mult(leftOp: Expr, rightOp: Expr) extends Expr
 
 abstract class Type extends SyntaxTreeNode
 case class BooleanType() extends Type
@@ -50,18 +52,32 @@ object Parser {
 
   def expr[_: P]: P[Expr] = P(exprVal)
 
-  def parens[_: P] = P(("(" ~ exprVal ~ ")") | exprVal)
+  def mult[_: P] = P(not ~ "*" ~ not)
+    .map({ case (leftOp, rightOp) => Mult(leftOp, rightOp) })
+
+  def not[_: P]: P[Not] = P(("!" ~ not) | exprInfo)
+    .map(e => Not(e))
+
+  // TODO: handle case where none of arrayLength/methodCall/arrayLookup
+  def exprInfo[_: P] = P(parens.flatMap(e => arrayLength(e) | methodCall(e) | arrayLookup(e)))
+
+  def parens[_: P] = P(("(" ~ expr ~ ")") | exprVal)
     .map(e => Parens(e))
 
-  def exprInfo[_: P] = ??? //P(parens ~ ())
+  def arrayLength[_: P](array: Expr) = P(".length")
+    .map(_ => ArrayLength(array))
 
-  def arrayLength[_: P] = P(parens ~ ".length")
-    .map(e => ArrayLength(e))
+  def exprList[_: P] = P((expr ~ ("," ~ expr).rep).?)
+    .map({
+      case Some((head, tail)) => head +: tail
+      case None => Seq()
+    })
 
-  //def methodCall[_: P] = P(parens ~ "." ~ id ~ "(" ~ expr.? ~ ("," ~ expr).rep )
-  //  .map({ case (object_, methodName) => MethodCall(object_, methodName)})
+  def methodCall[_: P](receiver: Expr) = P("." ~ id ~ "(" ~ exprList ~ ")")
+    .map({ case (methodName, args) => MethodCall(receiver, methodName, args) })
 
-  def arrayLookup[_: P] = ???
+  def arrayLookup[_: P](array: Expr) = P("[" ~ expr ~ "]")
+    .map(index => ArrayLookup(array, index))
 
   def type_[_: P]: P[Type] = P(intArrayType | booleanType | intType | objectType)
 
