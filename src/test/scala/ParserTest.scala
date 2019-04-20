@@ -1,29 +1,111 @@
 class ParserTest extends org.scalatest.FunSuite {
   import fastparse._, NoWhitespace._
 
-  test("517 is a valid int literal") {
-    assertSuccess("517", Parser.intLit(_))
+  test("Valid identifier") {
+    assertSuccess("MiniJavaTest1", Parser.id(_))
   }
 
-  test("0 is a valid int literal") {
-    assertSuccess("0", Parser.intLit(_))
+  test("Foo b") {
+    assertSuccess("Foo b;", Parser.varDecl(_))
   }
 
-  test("7 is a valid int literal") {
-    assertSuccess("7", Parser.intLit(_))
-  }
 
-  test("02 is not a valid int literal") {
-    assertFail("02", Parser.intLit(_))
-  }
+  test("Positive parse test") {
+    val program =
+      """class MiniJavaTest1 {
+             public static void main(String[] args) {
+                 int a;
+                 boolean b;
+                 if (a < 2)
+                     System.out.println(1);
+                 else
+                     System.out.println(3);
+             }
+         }
+         class MiniJavaTest2 {
+             public int doStuff(int a, int b) {
+                 int[] x;
+                 Foo b;
+                 x = b.doOtherStuff(b, a);
+                 return x;
+             }
 
-  test("method call with arguments") {
-    assertSuccess("foo.len(foo,bar)", Parser.exprInfo(_))
-  }
+             public int calculate() {
+                 MiniJavaTest2 c;
+                 int i;
+                 boolean b;
+                 /*
+                 Test d;
+                 */
+                 //int[] banan;
 
-  test("plusminus") {
-    val Parsed.Success(value, index) = parse("3-1-1+4-2+6*7-3", Parser.plusMinus2(_))
-    println(value)
+
+                 if (a < true) {} else {}
+
+                 if (a > 3 && g <= 78) {
+                     while (a >= 5) {
+
+                     }
+                 } else {
+                     c = a == g;
+                     if (a != b && foo) {
+
+                     } else {
+                         b = g.foo(a != c > d);
+                     }
+                 }
+
+                 if (a == 5) {
+                     System.out.println(56);
+                 }
+
+                 while(true) {
+                     if (c.isGood()) {
+                       i = c.getGoodness();
+                     } else {
+                       i = c.getBadness(1337, 1338);
+                     }
+                     System.out.println(i);
+                     c = this;
+                     System.out.println(c.length);
+                     System.out.println(i.length);
+                 }
+                 b = !true;
+                 b = (!true && false && c.partay());
+/*TMP
+                 a = d.foo().bar() + array[24].length;
+                 a = array.length.length;
+                 a = bar[24][27];
+*/
+                 a = !!true;
+                 b = !!!!!!true;
+
+                 x = !(!false && (true && !false)) + 5 * 6 * 3 - 4 + 5 - 3 + (5 - 3)*7;
+/*TMP                 z = !cat.car().bar()[47].length; */
+
+/*TMP                 a = !5 + !(2 && 3 - hej.i().crow()); */
+
+
+                 b = 5 + true * foo.bar(hejsan.length);
+
+                 d = new Test();
+                 {
+                     banan = new int[5];
+                     banan[4] = 18;
+                 }
+
+                 return 5*3+2-(5+2)-7;
+             }
+         }
+
+         class Empty {}
+      """
+
+     Parser.parse(program) match {
+       case p: Parsed.Failure => println(p.longMsg)
+     }
+
+    assertSuccess(program, Parser.program(_))
   }
 
   private def assertSuccess(s: String, parseFn: P[_] => P[Any]) = {
