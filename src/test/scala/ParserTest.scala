@@ -1,16 +1,7 @@
 class ParserTest extends org.scalatest.FunSuite {
-  import fastparse._, NoWhitespace._
+  import fastparse._
 
-  test("Valid identifier") {
-    assertSuccess("MiniJavaTest1", Parser.id(_))
-  }
-
-  test("Foo b") {
-    assertSuccess("Foo b;", Parser.varDecl(_))
-  }
-
-
-  test("Positive parse test") {
+  test("PositiveParse") {
     val program =
       """class MiniJavaTest1 {
              public static void main(String[] args) {
@@ -101,12 +92,31 @@ class ParserTest extends org.scalatest.FunSuite {
          class Empty {}
       """
 
-     Parser.parse(program) match {
-       case p: Parsed.Failure => println(p.longMsg)
-     }
-
-    assertSuccess(program, Parser.program(_))
+    assertSuccess(program)
   }
+
+  test("Precedence") {
+    val program =
+      """class MiniJavaTest1 {
+        public static void main(String[] args) {
+          a = 5 + 3 || 7 * 3 && 57 == 63 != 84 < 34 > 39 >= 938;
+        }
+      }
+      """
+
+    assertSuccess(program)
+  }
+
+  private def assertSuccess(s: String) = {
+    val Parsed.Success(_, index) = Parser.parse(s, debug = true)
+    assert(index == s.length)
+  }
+
+  private def assertFail(s: String) =
+    Parser.parse(s, debug = true) match {
+      case Parsed.Success(_, index) => assert(index != s.length)
+      case Parsed.Failure(_, _, _) => assert(true)
+    }
 
   private def assertSuccess(s: String, parseFn: P[_] => P[Any]) = {
     val Parsed.Success(_, index) = parse(s, parseFn)
