@@ -13,17 +13,19 @@ case class ArrayLength(array: Expr) extends Expr
 case class MethodCall(objectName: Expr, methodName: Identifier, args: Seq[Expr]) extends Expr
 case class ArrayLookup(array: Expr, index: Expr) extends Expr
 case class Not(expr: Expr) extends Expr
-case class Mult(leftOp: Expr, rightOp: Expr) extends Expr
-case class Plus(leftOp: Expr, rightOp: Expr) extends Expr
-case class Minus(leftOp: Expr, rightOp: Expr) extends Expr
-case class LessThan(leftOp: Expr, rightOp: Expr) extends Expr
-case class LessOrEqualThan(leftOp: Expr, rightOp: Expr) extends Expr
-case class GreaterThan(leftOp: Expr, rightOp: Expr) extends Expr
-case class GreaterOrEqualThan(leftOp: Expr, rightOp: Expr) extends Expr
-case class Equal(leftOp: Expr, rightOp: Expr) extends Expr
-case class NotEqual(leftOp: Expr, rightOp: Expr) extends Expr
-case class And(leftOp: Expr, rightOp: Expr) extends Expr
-case class Or(leftOp: Expr, rightOp: Expr) extends Expr
+
+abstract class BinaryOp(val leftOp: Expr, val rightOp: Expr) extends Expr
+case class Mult(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
+case class Plus(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
+case class Minus(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
+case class LessThan(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
+case class LessOrEqualThan(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
+case class GreaterThan(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
+case class GreaterOrEqualThan(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
+case class Equal(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
+case class NotEqual(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
+case class And(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
+case class Or(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
 
 abstract class Type extends SyntaxTreeNode
 case class BooleanType() extends Type
