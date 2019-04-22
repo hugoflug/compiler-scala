@@ -11,7 +11,7 @@ class SymbolTableCreatorTest extends org.scalatest.FunSuite {
              }
          }
        """
-    val p = Parser.parse(program)
+    val p = Parser.parse_(program)
     val symTable = SymbolTableCreator.create(p.get.value)
     assert(symTable.isLeft)
     println(symTable.left.get.msg)
@@ -107,7 +107,7 @@ class SymbolTableCreatorTest extends org.scalatest.FunSuite {
 
          class Empty {}
       """
-      val p = Parser.parse(program)
+      val p = Parser.parse_(program)
       val symTable = SymbolTableCreator.create(p.get.value)
       println(symTable.treeString)
       println(symTable.valueTreeString)

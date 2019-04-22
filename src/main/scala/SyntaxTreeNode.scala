@@ -10,7 +10,7 @@ case class NewArray(arraySize: Expr) extends Expr
 case class NewObject(typeName: Identifier) extends Expr
 case class Parens(expr: Expr) extends Expr
 case class ArrayLength(array: Expr) extends Expr
-case class MethodCall(objectName: Expr, methodName: Identifier, args: Seq[Expr]) extends Expr
+case class MethodCall(obj: Expr, methodName: Identifier, args: Seq[Expr]) extends Expr
 case class ArrayLookup(array: Expr, index: Expr) extends Expr
 case class Not(expr: Expr) extends Expr
 

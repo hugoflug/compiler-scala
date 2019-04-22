@@ -1,3 +1,5 @@
+import EitherUtils.firstError
+
 object SymbolTableCreator {
   type Redef[A] = Either[RedefinitionError, A]
   type SymbolTable = Map[String, ClassTable]
@@ -59,11 +61,5 @@ object SymbolTableCreator {
     val dups = map.filter({ case (_, v) => v.length > 1 })
     if (dups.nonEmpty) Left(RedefinitionError("Duplicate key: " + dups.head._1))
     else Right(map.mapValues(_.head))
-  }
-
-  private def firstError[A, B](eithers: Seq[Either[A, B]]): Either[A, Seq[B]] = {
-    val lefts = eithers.collect({ case left: Left[A, B] => left })
-    if (lefts.nonEmpty) Left(lefts.head.left.get)
-    else Right(eithers.map(_.right.get))
   }
 }

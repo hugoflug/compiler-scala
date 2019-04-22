@@ -1,6 +1,8 @@
 object Parser {
   import fastparse._, JavaWhitespace._
 
+  case class ParseError(msg: String) extends CompilerError(msg)
+
   def stmt[_: P]: P[Stmt] = P(assign | arrayAssign | block | syso | while_ | ifStmt)
 
   def ifStmt[_: P] = P("if" ~/ "(" ~ expr ~ ")" ~ stmt ~ ("else" ~ stmt).?)
@@ -157,11 +159,22 @@ object Parser {
   def program[_: P] = P(mainClass ~ classDecl.rep ~ End)
     .map({ case(mainClass, classDecls) => Program(mainClass, classDecls) })
 
-  def parse(s: String, debug: Boolean = false): Parsed[Program] = {
+  def parse(s: String, debug: Boolean = false): Either[ParseError, Program] = {
+    val result = fastparse.parse(s, program(_), verboseFailures = debug)
+    result match {
+      case f: Parsed.Failure =>
+        if (debug) println(f.longMsg)
+        Left(ParseError(f.label))
+      case Parsed.Success(value, _) =>
+        Right(value)
+    }
+  }
+
+  def parse_(s: String, debug: Boolean = false): Parsed[Program] = {
     val result = fastparse.parse(s, program(_), verboseFailures = debug)
     result match {
       case p: Parsed.Failure => println(p.longMsg)
-      case _ => {}
+      case _ =>
     }
     result
   }
