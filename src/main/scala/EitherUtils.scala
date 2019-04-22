@@ -7,7 +7,7 @@ object EitherUtils {
 
   def assert[E](b: Boolean,  err: E): Either[E, Unit] = if (b) Right() else Left(err)
 
-  def firstError[A, B](eithers: Seq[Either[A, B]]): Either[A, Seq[B]] = {
+  def orFirstError[A, B](eithers: Seq[Either[A, B]]): Either[A, Seq[B]] = {
     val lefts = eithers.collect({ case left: Left[A, B] => left })
     if (lefts.nonEmpty) Left(lefts.head.left.get)
     else Right(eithers.map(_.right.get))

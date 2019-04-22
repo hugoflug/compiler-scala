@@ -1,5 +1,5 @@
 import SymbolTableCreator.{ClassTable, MethodTable, SymbolTable}
-import EitherUtils.firstError
+import EitherUtils.orFirstError
 
 object TypeChecker {
   abstract class TypeError extends CompilerError
@@ -73,7 +73,7 @@ object TypeChecker {
           objType <- typeCheck(call.obj, c)
           _ <- assertIsObjectType(objType, c)
           cObjType = objType.asInstanceOf[ObjectType]
-          argTypes <- firstError(call.args.map(typeCheck(_, c)))
+          argTypes <- orFirstError(call.args.map(typeCheck(_, c)))
           returnType <- getMethodReturnType(cObjType.name, call.methodName.name, argTypes, c.symTable)
         } yield returnType
       case _: This =>

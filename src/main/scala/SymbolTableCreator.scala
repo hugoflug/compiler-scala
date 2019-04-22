@@ -1,4 +1,4 @@
-import EitherUtils.firstError
+import EitherUtils.orFirstError
 
 object SymbolTableCreator {
   type SymbolTable = Map[String, ClassTable]
@@ -8,20 +8,18 @@ object SymbolTableCreator {
 
   case class RedefinitionError(name: String) extends CompilerError
 
-  // TODO: handle cross-type name conflicts, e.g. param with same name as local
-
   def create(program: Program): Either[RedefinitionError, SymbolTable] =
     for {
-      classTable <- firstError(program.classDecls.map(createClassTable))
+      classTable <- orFirstError(program.classDecls.map(createClassTable))
       mainClassTable <- createClassTable(program.mainClass)
-      symbolTable <- createClassTableMap(mainClassTable +: classTable)
+      symbolTable <- dedup((mainClassTable +: classTable).groupBy(_.name))
     } yield symbolTable
 
   private type R[A] = Either[RedefinitionError, A]
   
   private def createClassTable(mainClass: MainClass): R[ClassTable] =
     for {
-      varDecls <- createVarDeclMap(mainClass.varDecls)
+      varDecls <- dedup(createVarDeclMap(mainClass.varDecls))
       name = mainClass.name.name
       methods = Map("main" -> MethodTable("main", Void(), Map(), varDecls))
       fields: Map[String, Type] = Map()
@@ -29,34 +27,32 @@ object SymbolTableCreator {
 
   private def createClassTable(classDecl: ClassDecl): R[ClassTable] =
     for {
-      methodTables <- firstError(classDecl.methodDecls.map(createMethodTable))
-      methods <- createMethodTableMap(methodTables)
-      fields <- createVarDeclMap(classDecl.varDecls)
+      fields <- dedup(createVarDeclMap(classDecl.varDecls))
+      methodTables <- orFirstError(classDecl.methodDecls.map(createMethodTable(_, fields.keys.toSeq)))
+      methods <- dedup(methodTables.groupBy(_.name))
       name = classDecl.name.name
     } yield ClassTable(name, methods, fields)
 
-  private def createMethodTable(methodDecl: MethodDecl): R[MethodTable] =
+  private def createMethodTable(methodDecl: MethodDecl, fieldNames: Seq[String]): R[MethodTable] =
     for {
-      params <- createFormalMap(methodDecl.argList)
-      locals <- createVarDeclMap(methodDecl.varDeclList)
+      params <- dedup(createFormalMap(methodDecl.argList))
+      locals <- dedup(createVarDeclMap(methodDecl.varDeclList))
       name = methodDecl.name.name
       returnType = methodDecl.typeName
+      _ <- assertNoDuplicates(params.keys ++ locals.keys ++ fieldNames)
     } yield MethodTable(name, returnType, params, locals)
 
-  private def createVarDeclMap(formals: Seq[VarDecl]): R[Map[String, Type]] =
-    dedup(toMultiValuedMap(formals.map(v => (v.name.name, v.typeName))))
+  private def createVarDeclMap(formals: Seq[VarDecl]): Map[String, Seq[Type]] =
+    toMultiValuedMap(formals.map(v => (v.name.name, v.typeName)))
 
-  private def createFormalMap(formals: Seq[Formal]): R[Map[String, Type]] =
-    dedup(toMultiValuedMap(formals.map(f => (f.name.name, f.typeName))))
-
-  private def createMethodTableMap(methodTables: Seq[MethodTable]): R[Map[String, MethodTable]] =
-    dedup(methodTables.groupBy(_.name))
-
-  private def createClassTableMap(classTables: Seq[ClassTable]): R[Map[String, ClassTable]] =
-    dedup(classTables.groupBy(_.name))
+  private def createFormalMap(formals: Seq[Formal]): Map[String, Seq[Type]] =
+    toMultiValuedMap(formals.map(f => (f.name.name, f.typeName)))
 
   private def toMultiValuedMap[A, B](seq: Seq[(A, B)]): Map[A, Seq[B]] =
     seq.groupBy(_._1).mapValues(v => v.map(_._2))
+
+  private def assertNoDuplicates[A, B](it: Iterable[A]): R[Map[A, A]] =
+    dedup(it.groupBy(a => a).mapValues(_.toSeq))
 
   private def dedup[A, B](map: Map[A, Seq[B]]): R[Map[A, B]] =
     map.find({ case (_, v) => v.length > 1 }) match {
