@@ -1,5 +1,5 @@
 import SymbolTableCreator.{ClassTable, MethodTable, SymbolTable}
-import EitherUtils.{orErr, firstError}
+import EitherUtils.firstError
 
 object TypeChecker {
   abstract class TypeError extends CompilerError
