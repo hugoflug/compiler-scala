@@ -1,1 +1,1 @@
-abstract class CompilerError(msg: String)
+abstract class CompilerError
