@@ -3,8 +3,10 @@ import EitherUtils.orFirstError
 object SymbolTableCreator {
   type SymbolTable = Map[String, ClassTable]
 
-  case class ClassTable(name: String, methods: Map[String, MethodTable], fields: Map[String, Type])
-  case class MethodTable(name: String, returnType: Type, params: Map[String, Type], locals: Map[String, Type])
+  case class ClassTable(name: String, methods: Map[String, MethodTable], fields: Map[String, Var])
+  case class MethodTable(name: String, returnType: Type, params: Map[String, Var], locals: Map[String, Var])
+
+  case class Var(name: String, type_ : Type, varNo: Int)
 
   case class RedefinitionError(name: String) extends CompilerError
 
@@ -19,15 +21,15 @@ object SymbolTableCreator {
   
   private def createClassTable(mainClass: MainClass): R[ClassTable] =
     for {
-      varDecls <- dedup(createVarDeclMap(mainClass.varDecls))
+      varDecls <- dedup(createVarMap(mainClass.varDecls))
       name = mainClass.name.name
       methods = Map("main" -> MethodTable("main", Void(), Map(), varDecls))
-      fields: Map[String, Type] = Map()
+      fields = Map[String, Var]()
     } yield ClassTable(name, methods, fields)
 
   private def createClassTable(classDecl: ClassDecl): R[ClassTable] =
     for {
-      fields <- dedup(createVarDeclMap(classDecl.varDecls))
+      fields <- dedup(createVarMap(classDecl.varDecls))
       methodTables <- orFirstError(classDecl.methodDecls.map(createMethodTable(_, fields.keys.toSeq)))
       methods <- dedup(methodTables.groupBy(_.name))
       name = classDecl.name.name
@@ -35,21 +37,15 @@ object SymbolTableCreator {
 
   private def createMethodTable(methodDecl: MethodDecl, fieldNames: Seq[String]): R[MethodTable] =
     for {
-      params <- dedup(createFormalMap(methodDecl.argList))
-      locals <- dedup(createVarDeclMap(methodDecl.varDeclList))
+      params <- dedup(createVarMap(methodDecl.argList))
+      locals <- dedup(createVarMap(methodDecl.varDeclList))
       name = methodDecl.name.name
       returnType = methodDecl.typeName
       _ <- assertNoDuplicates(params.keys ++ locals.keys ++ fieldNames)
     } yield MethodTable(name, returnType, params, locals)
 
-  private def createVarDeclMap(formals: Seq[VarDecl]): Map[String, Seq[Type]] =
-    toMultiValuedMap(formals.map(v => (v.name.name, v.typeName)))
-
-  private def createFormalMap(formals: Seq[Formal]): Map[String, Seq[Type]] =
-    toMultiValuedMap(formals.map(f => (f.name.name, f.typeName)))
-
-  private def toMultiValuedMap[A, B](seq: Seq[(A, B)]): Map[A, Seq[B]] =
-    seq.groupBy(_._1).mapValues(v => v.map(_._2))
+  private def createVarMap(genVarDecls: Seq[GenVarDecl]): Map[String, Seq[Var]] =
+    genVarDecls.zipWithIndex.map({ case(v, i) => Var(v.name.name, v.typeName, i) }).groupBy(_.name)
 
   private def assertNoDuplicates[A, B](it: Iterable[A]): R[Map[A, A]] =
     dedup(it.groupBy(a => a).mapValues(_.toSeq))

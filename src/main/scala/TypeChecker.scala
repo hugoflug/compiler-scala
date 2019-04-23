@@ -59,6 +59,7 @@ object TypeChecker {
         val method = c.currentMethod.get
         val classFields = c.currentClass.get.fields
         oneOf(method.locals.get(i.name), method.params.get(i.name), classFields.get(i.name))
+          .map(_.type_)
           .toRight(UndefinedNameError(i.name))
       case p: Parens =>
         typeCheck(p.expr, c)
@@ -109,7 +110,7 @@ object TypeChecker {
       methodTable <- classTable.methods.get(methodName).toRight(UndefinedNameError(methodName))
       expectedParams = methodTable.params.values.toSeq
       _ <- assertArgAmountEq(expectedParams.length, params.length)
-      _ <- assertTypeListEq(expectedParams, params)
+      _ <- assertTypeListEq(expectedParams.map(_.type_), params)
     } yield methodTable.returnType
 
   private def assertType(expr: Expr, expected: Type, context: Context): Either[TypeError, Unit] =

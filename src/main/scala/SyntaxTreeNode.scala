@@ -43,8 +43,11 @@ case class IfWithoutElse(condition: Expr, thenStmt: Stmt) extends Stmt
 case class Syso(printee: Expr) extends Stmt
 case class While(condition: Expr, stmt: Stmt) extends Stmt
 
-case class VarDecl(typeName: Type, name: Identifier) extends SyntaxTreeNode
-case class Formal(typeName: Type, name: Identifier) extends SyntaxTreeNode
+
+abstract class GenVarDecl(val typeName: Type, val name: Identifier) extends SyntaxTreeNode
+case class VarDecl(override val typeName: Type, override val name: Identifier) extends GenVarDecl(typeName, name)
+case class Formal(override val typeName: Type, override val name: Identifier) extends GenVarDecl(typeName, name)
+
 case class MethodDecl(typeName: Type, name: Identifier, argList: Seq[Formal], varDeclList: Seq[VarDecl],
                       stmts: Seq[Stmt], returnVal: Expr) extends SyntaxTreeNode
 case class ClassDecl(name: Identifier, varDecls: Seq[VarDecl], methodDecls: Seq[MethodDecl]) extends SyntaxTreeNode
