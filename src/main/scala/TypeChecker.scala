@@ -112,7 +112,7 @@ object TypeChecker {
       _ <- assertTypeListEq(expectedParams, params)
     } yield methodTable.returnType
 
-  private def assertType(expr: Expr, expected: Type, context: Context) =
+  private def assertType(expr: Expr, expected: Type, context: Context): Either[TypeError, Unit] =
     for {
       type_ <- typeCheck(expr, context)
       _ <- assertType(type_, expected)

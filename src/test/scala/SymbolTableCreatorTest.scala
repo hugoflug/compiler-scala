@@ -14,7 +14,7 @@ class SymbolTableCreatorTest extends org.scalatest.FunSuite {
     val p = Parser.parse_(program)
     val symTable = SymbolTableCreator.create(p.get.value)
     assert(symTable.isLeft)
-    println(symTable.left.get.msg)
+    //println(symTable.left.get.msg)
   }
 
   test("Parse and create symbol table") {

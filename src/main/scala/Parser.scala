@@ -1,7 +1,7 @@
 object Parser {
   import fastparse._, JavaWhitespace._
 
-  case class ParseError(msg: String) extends CompilerError(msg)
+  case class ParseError(msg: String) extends CompilerError
 
   def stmt[_: P]: P[Stmt] = P(assign | arrayAssign | block | syso | while_ | ifStmt)
 
