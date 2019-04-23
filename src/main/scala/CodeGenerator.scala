@@ -32,22 +32,22 @@ object CodeGenerator {
     val setTrue = label
     val after = label + 1
     asm(label + 2) <+>
-      compareInstr + " " + setTrue <+>
+      compareInstr + " l" + setTrue <+>
       "iconst_0" <+>
-      "goto " + after <+>
-      setTrue + ":" <+>
+      "goto l" + after <+>
+      "l" + setTrue + ":" <+>
       "iconst_1" <+>
-      after + ":"
+      "l" + after + ":"
   }
 
   private def genShortCircuitOp(binOp: BinaryOp, compareInstr: String, c: Context)(label: Int) =
     asm(label + 1) <++>
       gen(binOp.leftOp, c) <+>
       "dup" <+>
-      compareInstr + " " + label <+>
+      compareInstr + " l" + label <+>
       "pop" <++>
       gen(binOp.rightOp, c) <+>
-      "end: " + label
+      "end: l" + label
 
   private def oneOf[T](options: Option[T]*): Option[T] =
     if (options.isEmpty) None
@@ -86,7 +86,7 @@ object CodeGenerator {
       "return" <+>
       ".end method"
 
-    JasminAssembly(classDecl.name.name, codeGenResult.program)
+    JasminAssembly(classDecl.name.name + ".jasmin", codeGenResult.program)
   }
 
   private def gen(classDecl: ClassDecl, symTable: SymbolTable, sourceFile: String): JasminAssembly = {
@@ -106,7 +106,7 @@ object CodeGenerator {
       ".end method" <++>
       genAll(classDecl.methodDecls, context)
 
-    JasminAssembly(classDecl.name.name, codeGenResult.program)
+    JasminAssembly(classDecl.name.name + ".jasmin", codeGenResult.program)
   }
 
   private def gen(node: SyntaxTreeNode, c: Context)(label: Int): CodegenResult =
@@ -163,12 +163,12 @@ object CodeGenerator {
         val start = label
         val after = label + 1
         asm(label + 2) <+>
-          start + ":" <++>
+          "l" + start + ":" <++>
           gen(condition, c) <+>
-          "ifeq: " + after <++>
+          "ifeq l" + after <++>
           gen(stmt, c) <+>
-          "goto " + start <+>
-          after + ":"
+          "goto l" + start <+>
+          "l" + after + ":"
 
       case Syso(printee) =>
         val printeeType = TypeChecker.getType(printee, c)
@@ -184,15 +184,17 @@ object CodeGenerator {
                 val falze = label
                 val after = label + 1
                 asm(label + 2) <+>
-                  "ifeq " + falze <+>
+                  "ifeq l" + falze <+>
                   "ldc \"true\"" <+>
-                  "goto " + after <+>
-                  falze + ":" <+>
+                  "goto l" + after <+>
+                  "l" + falze + ":" <+>
                   "ldc \"false\"" <+>
-                  after + ":" <+>
+                  "l" + after + ":" <+>
                   "invokevirtual java/io/PrintStream/println(Ljava/lang/String;)V"
             })
-      }
+
+      case _ => asm(label)
+    }
 
   private def gen(expr: Expr, c: Context)(label: Int): CodegenResult =
     expr match {
@@ -200,18 +202,18 @@ object CodeGenerator {
         asm(label) <++> genBinaryOp(p, "iadd", c)
       case m: Minus =>
         asm(label) <++> genBinaryOp(m, "isub", c)
-      case gt: GreaterThan =>
-        asm(label) <++> genBinaryOp(gt, "if_icmpgt", c)
-      case get: GreaterOrEqualThan =>
-        asm(label) <++> genBinaryOp(get, "if_icmpge", c)
-      case lt: LessThan =>
-        asm(label) <++> genBinaryOp(lt, "if_icmplt", c)
-      case let: LessOrEqualThan =>
-        asm(label) <++> genBinaryOp(let, "if_icmple", c)
+      case GreaterThan(leftOp, rightOp) =>
+        asm(label) <++> gen(leftOp, c) <++> gen(rightOp, c) <++> genComparison("if_icmpgt")
+      case GreaterOrEqualThan(leftOp, rightOp) =>
+        asm(label) <++> gen(leftOp, c) <++> gen(rightOp, c) <++> genComparison("if_icmpge")
+      case LessThan(leftOp, rightOp) =>
+        asm(label) <++> gen(leftOp, c) <++> gen(rightOp, c) <++> genComparison("if_icmplt")
+      case LessOrEqualThan(leftOp, rightOp) =>
+        asm(label) <++> gen(leftOp, c) <++> gen(rightOp, c) <++> genComparison("if_icmple")
       case m: Mult =>
         asm(label) <++> genBinaryOp(m, "imul", c)
       case IntLit(value) =>
-        asm(label) <+> "ldc " <+> value.toString
+        asm(label) <+> "ldc " + value.toString
       case Not(e) =>
         asm(label) <++> gen(e, c) <+> "iconst_1" <+> "ixor"
       case NewArray(arraySize) =>
@@ -252,5 +254,6 @@ object CodeGenerator {
         asm(label) <++> gen(leftOp, c) <++> gen(rightOp, c) <++> genComparison(compareInstruct)
       case Parens(e) =>
         asm(label) <++> gen(e, c)
+      case _ => asm(label)
     }
 }
