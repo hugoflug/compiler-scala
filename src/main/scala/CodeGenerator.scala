@@ -84,7 +84,7 @@ object CodeGenerator {
         asm(label) <+> genAll(b.stmtList, c)
       case cd: ClassDecl => {
         var newContext = c.copy(currentClass = c.symTable.get(cd.name.name))
-
+        ???
       }
 
     }
@@ -113,7 +113,7 @@ object CodeGenerator {
         asm(label) <+> gen(n.arraySize, c) <+> "newarray int"
       case n: NewObject =>
         val typeName = n.typeName.name
-        asm(label) <+> "new " + esc(n.typeName.name) <+> "dup" <+> "invokespecial " + esc(typeName + "/<init>()V"
+        asm(label) <+> "new " + esc(n.typeName.name) <+> "dup" <+> "invokespecial " + esc(typeName + "/<init>()V")
       case a: ArrayLength =>
         asm(label) <+> gen(a.array, c) <+> "arraylength"
       case a: ArrayLookup =>
