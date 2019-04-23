@@ -1,104 +1,108 @@
-class TypeCheckerTest extends org.scalatest.FunSuite {
-  test("Typecheck program") {
-    val program =
-      """class MiniJavaTest1 {
-             public static void main(String[] args) {
-                 int a;
-                 boolean b;
-                 if (a < 2)
-                     System.out.println(1);
-                 else
-                     System.out.println(3);
-             }
-         }
-         class MiniJavaTest2 {
-             public int doStuff(int a, int b) {
-                 int[] x;
-                 Foo b;
-                 x = b.doOtherStuff(b, a);
-                 return x;
-             }
+import org.scalatest.Matchers
 
-             public int calculate() {
-                 MiniJavaTest2 c;
-                 int i;
-                 boolean b;
-                 /*
-                 Test d;
-                 */
-                 //int[] banan;
-
-
-                 if (a < true) {} else {}
-
-                 if (a > 3 && g <= 78) {
-                     while (a >= 5) {
-
-                     }
-                 } else {
-                     c = a == g;
-                     if (a != b && foo) {
-
-                     } else {
-                         b = g.foo(a != c > d);
-                     }
-                 }
-
-                 if (a == 5) {
-                     System.out.println(56);
-                 }
-
-                 while(true) {
-                     if (c.isGood()) {
-                       i = c.getGoodness();
-                     } else {
-                       i = c.getBadness(1337, 1338);
-                     }
-                     System.out.println(i);
-                     c = this;
-                     System.out.println(c.length);
-                     System.out.println(i.length);
-                 }
-                 b = !true;
-                 b = (!true && false && c.partay());
-/*TMP
-                 a = d.foo().bar() + array[24].length;
-                 a = array.length.length;
-                 a = bar[24][27];
-*/
-                 a = !!true;
-                 b = !!!!!!true;
-
-                 x = !(!false && (true && !false)) + 5 * 6 * 3 - 4 + 5 - 3 + (5 - 3)*7;
-/*TMP                 z = !cat.car().bar()[47].length; */
-
-/*TMP                 a = !5 + !(2 && 3 - hej.i().crow()); */
-
-
-                 b = 5 + true * foo.bar(hejsan.length);
-
-                 d = new Test();
-                 {
-                     banan = new int[5];
-                     banan[4] = 18;
-                 }
-
-                 return 5*3+2-(5+2)-7;
-             }
-         }
-
-         class Empty {}
-      """
-
-    val result = for {
+class TypeCheckerTest extends org.scalatest.FunSuite with Matchers {
+  private def typeCheck(program: String) =
+    for {
       p <- Parser.parse(program)
       symTable <- SymbolTableCreator.create(p)
       _ <- TypeChecker.typeCheck(p, symTable)
     } yield ()
 
-    result match {
-      case Left(value) => println(value); assert(false)
-      case Right(_) => assert(true)
+  test("ValidProgram") {
+    val program = """
+    class Foo {
+      public static void main(String[] a){
+        Foo foo;
+        foo = new Foo();
+      }
     }
+
+    class Zoo {
+      int[] x;
+      boolean main;
+
+      public int[] getX() {
+        main = true;
+        return x;
+      }
+
+      public int[] setX(int[] y) {
+        x = y;
+        return x;
+      }
+    }
+
+    class Boo {
+      int e;
+
+      public int foo(int[] bar, int[] zoo) {
+        int asdf;
+        Foo foo;
+        int a;
+        a = 3;
+        bar[5] = 7;
+        System.out.println(bar.length);
+        System.out.println(a < 3);
+        a = bar[3];
+        foo = new Foo();
+        return a + 2;
+      }
+
+      public int croo(Foo foo, Boo boo) {
+        int e;
+        int[] f;
+        e = 1;
+        if (e < 2 && false) {
+          while (true) {
+            e = boo.croo(new Foo(), new Boo());
+            f = new int[e];
+            f[0] = 56;
+            f[1] = 2;
+          }
+        } else {
+          {
+            /*
+                boolean a = 5;
+                comments should work!
+            */
+            /* also on only one line */
+            //boolean class = 7; and this kind too
+          }
+        }
+        return 0;
+      }
+
+      public int tzar(int[] arrayzish) {
+        int a;
+        int[] i;
+        Boo boo;
+        boo = new Boo();
+        arrayzish[5] = this.foo(arrayzish, arrayzish);
+        a = boo.foo(arrayzish, arrayzish);
+        a = boo.foo(arrayzish, arrayzish);
+        a = boo.croo(new Foo(), this);
+        return arrayzish.length;
+      }
+    }"""
+
+    typeCheck(program) should matchPattern { case Right(_) => }
+  }
+
+  test("UndefinedTypeInFormal") {
+    val program = """
+    class UndefinedTypeInFormal {
+      public static void main(String[] args) {
+      }
+    }
+
+    class Foo {
+      int foo;
+
+      public int bar(Double foo) {
+        return 1;
+      }
+    }"""
+
+    typeCheck(program) should matchPattern { case Left(_) => }
   }
 }

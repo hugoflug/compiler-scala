@@ -1,9 +1,9 @@
-class ParserTest extends org.scalatest.FunSuite {
-  import fastparse._
+import org.scalatest.Matchers
 
+class ParserTest extends org.scalatest.FunSuite with Matchers {
   test("PositiveParse") {
-    val program =
-      """class MiniJavaTest1 {
+    val program ="""
+         class MiniJavaTest1 {
              public static void main(String[] args) {
                  int a;
                  boolean b;
@@ -92,7 +92,7 @@ class ParserTest extends org.scalatest.FunSuite {
          class Empty {}
       """
 
-    assertSuccess(program)
+    Parser.parse(program) should matchPattern { case Right(_) => }
   }
 
   test("Precedence") {
@@ -104,29 +104,6 @@ class ParserTest extends org.scalatest.FunSuite {
       }
       """
 
-    assertSuccess(program)
-  }
-
-  private def assertSuccess(s: String) = {
-    val Parsed.Success(_, index) = Parser.parse_(s, debug = true)
-    assert(index == s.length)
-  }
-
-  private def assertFail(s: String) =
-    Parser.parse_(s, debug = true) match {
-      case Parsed.Success(_, index) => assert(index != s.length)
-      case Parsed.Failure(_, _, _) => assert(true)
-    }
-
-  private def assertSuccess(s: String, parseFn: P[_] => P[Any]) = {
-    val Parsed.Success(_, index) = parse(s, parseFn)
-    assert(index == s.length)
-  }
-
-  private def assertFail(s: String, parseFn: P[_] => P[Any]) = {
-    parse(s, parseFn) match {
-      case Parsed.Success(_, index) => assert(index != s.length)
-      case Parsed.Failure(_, _, _) => assert(true)
-    }
+    Parser.parse(program) should matchPattern { case Right(_) => }
   }
 }

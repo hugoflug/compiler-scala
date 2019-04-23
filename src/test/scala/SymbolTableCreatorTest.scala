@@ -1,8 +1,15 @@
-import sext._
+import SymbolTableCreator.{RedefinitionError, SymbolTable}
+import org.scalatest.Matchers
 
-class SymbolTableCreatorTest extends org.scalatest.FunSuite {
+class SymbolTableCreatorTest extends org.scalatest.FunSuite with Matchers {
 
-  test("Duplicate local variable name") {
+  private def createSymTable(program: String): Either[CompilationError, SymbolTable] =
+    for {
+      p <- Parser.parse(program)
+      symTable <- SymbolTableCreator.create(p)
+    } yield symTable
+
+  test("DuplicateLocalVariableName") {
     val program =
       """class Test {
              public static void main(String[] args) {
@@ -11,13 +18,11 @@ class SymbolTableCreatorTest extends org.scalatest.FunSuite {
              }
          }
        """
-    val p = Parser.parse_(program)
-    val symTable = SymbolTableCreator.create(p.get.value)
-    assert(symTable.isLeft)
-    //println(symTable.left.get.msg)
+
+    createSymTable(program) should matchPattern { case Left(RedefinitionError("a")) => }
   }
 
-  test("Parse and create symbol table") {
+  test("CreateSymbolTable") {
     val program =
       """class MiniJavaTest1 {
              public static void main(String[] args) {
@@ -107,10 +112,6 @@ class SymbolTableCreatorTest extends org.scalatest.FunSuite {
 
          class Empty {}
       """
-      val p = Parser.parse_(program)
-      val symTable = SymbolTableCreator.create(p.get.value)
-      println(symTable.treeString)
-      println(symTable.valueTreeString)
-
+    createSymTable(program) should matchPattern { case Right(_) => }
   }
 }

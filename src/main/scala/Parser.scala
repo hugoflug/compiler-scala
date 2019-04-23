@@ -1,7 +1,7 @@
 object Parser {
   import fastparse._, JavaWhitespace._
 
-  case class ParseError(msg: String) extends CompilerError
+  case class ParseError(msg: String) extends CompilationError
 
   def stmt[_: P]: P[Stmt] = P(assign | arrayAssign | block | syso | while_ | ifStmt)
 
@@ -156,7 +156,7 @@ object Parser {
     "}")
     .map({ case(name, stdArgsName, varDecls, stmts) => MainClass(name, stdArgsName, varDecls, stmts)})
 
-  def program[_: P] = P(mainClass ~ classDecl.rep ~ End)
+  def program[_: P] = P(CharIn(" \n").rep ~ mainClass ~ classDecl.rep ~ End)
     .map({ case(mainClass, classDecls) => Program(mainClass, classDecls) })
 
   def parse(s: String, debug: Boolean = false): Either[ParseError, Program] = {

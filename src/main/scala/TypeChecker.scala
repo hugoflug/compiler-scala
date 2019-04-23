@@ -2,7 +2,7 @@ import SymbolTableCreator.{ClassTable, MethodTable, SymbolTable}
 import EitherUtils.orFirstError
 
 object TypeChecker {
-  abstract class TypeError extends CompilerError
+  abstract class TypeError extends CompilationError
   case class WrongTypeError(actualType: Type, expectedType: Type) extends TypeError
   case class TypeNotInListError(actualType: Type, expectedTypes: Seq[Type]) extends TypeError
   case class WrongArgumentAmountError(actual: Int, expected: Int) extends TypeError
@@ -81,7 +81,7 @@ object TypeChecker {
           returnType <- getMethodReturnType(cObjType.name, call.methodName.name, argTypes, c.symTable)
         } yield returnType
       case _: This =>
-        if (c.currentClass.isDefined) Left(UndefinedNameError("this"))
+        if (c.currentClass.isEmpty) Left(UndefinedNameError("this"))
         else Right(ObjectType(c.currentClass.get.name))
     }
 

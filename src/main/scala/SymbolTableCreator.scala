@@ -5,10 +5,9 @@ object SymbolTableCreator {
 
   case class ClassTable(name: String, methods: Map[String, MethodTable], fields: Map[String, Var])
   case class MethodTable(name: String, returnType: Type, params: Map[String, Var], locals: Map[String, Var])
-
   case class Var(name: String, type_ : Type, varNo: Int)
 
-  case class RedefinitionError(name: String) extends CompilerError
+  case class RedefinitionError(name: String) extends CompilationError
 
   def create(program: Program): Either[RedefinitionError, SymbolTable] =
     for {
