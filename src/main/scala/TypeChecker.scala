@@ -18,6 +18,9 @@ object TypeChecker {
     } yield ()
   }
 
+  def getType(expr: Expr, c: Context): Type =
+    typeCheck(expr, c).right.get
+
   def typeCheck(expr: Expr, c: Context): Either[TypeError, Type] =
     expr match {
       case b: BinaryOp => b match {
