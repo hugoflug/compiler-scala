@@ -30,18 +30,18 @@ object SymbolTableCreator {
   private def createClassTable(classDecl: ClassDecl): R[ClassTable] =
     for {
       fields <- dedup(createVarMap(classDecl.varDecls))
-      methodTables <- orFirstError(classDecl.methodDecls.map(createMethodTable(_, fields.keys.toSeq)))
+      methodTables <- orFirstError(classDecl.methodDecls.map(createMethodTable))
       methods <- dedup(methodTables.groupBy(_.name))
       name = classDecl.name.name
     } yield ClassTable(name, methods, fields)
 
-  private def createMethodTable(methodDecl: MethodDecl, fieldNames: Seq[String]): R[MethodTable] =
+  private def createMethodTable(methodDecl: MethodDecl): R[MethodTable] =
     for {
       params <- dedup(createVarMap(methodDecl.argList))
       locals <- dedup(createVarMap(methodDecl.varDeclList))
       name = methodDecl.name.name
       returnType = methodDecl.typeName
-      _ <- assertNoDuplicates(params.keys.toSeq ++ locals.keys.toSeq ++ fieldNames)
+      _ <- assertNoDuplicates(params.keys.toSeq ++ locals.keys.toSeq)
     } yield MethodTable(name, TypeChecker.typeOfNode(returnType), params, locals)
 
   private def createVarMap(genVarDecls: Seq[GenVarDecl]): Map[String, Seq[Var]] =
