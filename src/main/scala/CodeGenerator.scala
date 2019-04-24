@@ -194,6 +194,25 @@ object CodeGenerator {
                   "invokevirtual java/io/PrintStream/println(Ljava/lang/String;)V"
             })
 
+      case If(condition, thenStmt, elseStmt, _) =>
+        val l = label
+        val after = label + 1
+        asm(label + 2) <++>
+          gen(condition, c) <+>
+          "ifeq l" + l <++>
+          gen(thenStmt, c) <+>
+          "goto l" + after <+>
+          "l" + label + ":" <++>
+          gen(elseStmt, c) <+>
+          "l" + after + ":"
+      case IfWithoutElse(condition, thenStmt, _) =>
+        val l = label
+        asm(label + 1) <++>
+          gen(condition, c) <+>
+          "ifeq l" + l <++>
+          gen(thenStmt, c) <+>
+          "l" + l + ":"
+
       case _ => asm(label)
     }
 
