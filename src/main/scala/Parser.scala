@@ -118,7 +118,7 @@ object Parser {
 
   def type_[_: P]: P[TypeNode] = P(intArrayType | booleanType | intType | objectType)
 
-  def intArrayType[_: P] = P(Index ~ "int" ~ "[]")
+  def intArrayType[_: P] = P(Index ~ "int" ~ "[" ~ "]")
     .map(index => IntArrayTypeNode(index))
 
   def booleanType[_: P] = P(Index ~ "boolean")
