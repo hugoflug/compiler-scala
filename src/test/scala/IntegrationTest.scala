@@ -22,11 +22,11 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
   }
 
   private def shouldSkip(program: String, extensions: Seq[String]): Boolean = {
-    val ext = """(?:^|\n)// *EXT:(?!!)(.*?) ?""".r
-    val noExt = """(?:^|\n)// *EXT:!(.*?) ?""".r
+    val ext = """(?:^|\n)// *EXT:(?!!)(.*)""".r
+    val noExt = """(?:^|\n)// *EXT:!(.*)""".r
 
-    val unsupportedExt = ext.findAllMatchIn(program).map(_.group(1)).exists(!extensions.contains(_))
-    val incompatibleExt = noExt.findAllMatchIn(program).map(_.group(1)).exists(extensions.contains(_))
+    val unsupportedExt = ext.findAllMatchIn(program).map(_.group(1)).map(_.trim()).exists(!extensions.contains(_))
+    val incompatibleExt = noExt.findAllMatchIn(program).map(_.group(1)).map(_.trim()).exists(extensions.contains(_))
 
     unsupportedExt || incompatibleExt
   }
