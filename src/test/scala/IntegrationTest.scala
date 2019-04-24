@@ -1,10 +1,15 @@
 import java.io.File
-import java.nio.file.Files
+import java.nio.file.{Files, Path, Paths}
 
 import sys.process._
 import org.scalatest.{AppendedClues, Matchers}
 
+import scala.io.Source
+
 class IntegrationTest extends org.scalatest.FunSuite with Matchers with AppendedClues {
+
+  private def readFile(filename: String) =
+    Source.fromFile(filename).mkString
 
   private def run(command: String, directory: String): (Int, String, String) = {
     val stdout = new StringBuilder
@@ -14,32 +19,59 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
     (status, stdout.toString, stderr.toString)
   }
 
-  private def assertOutput(program: String, mainClass: String, output: String) = {
+  private def listFiles(dir: String) =
+    new File(dir).listFiles
+
+  private def executeTest(program: String, mainClass: String, testFn: (Int, String, String) => Unit): Unit = {
     val outDir = Files.createTempDirectory("compiler-scala").toString
-    val result = Compiler.compileToFiles(program, mainClass + ".mj", outDir)
+    val result = Compiler.compileToFiles(program, mainClass + ".java", outDir)
     result shouldBe Right()
 
     val (_, _, stdErr) = run(s"java -jar jasmin.jar $outDir/$mainClass.jasmin -d $outDir", ".")
     stdErr shouldBe empty
 
-    val (errCode, stdOut, stdErr2) = run(s"java While", outDir)
-    errCode shouldBe 0 withClue stdErr2
-    stdOut shouldBe output
+    val (errCode, stdOut, stdErr2) = run(s"java $mainClass", outDir)
+    testFn(errCode, stdOut, stdErr2)
   }
 
-  test("While") {
-    val program = """
-      class While {
-        public static void main(String[] args) {
-          int a;
-          a = 5;
-          while (a > 0) {
-            System.out.println(a);
-            a = a-1;
-          }
+  private def forAllFiles(itSubDir: String, testFn: (String, File) => Unit): Unit = {
+    val subDirs = listFiles("./src/test/resources/integration-test/" + itSubDir)
+
+    subDirs.filter(_.isDirectory).foreach(subDir => subDir.listFiles((_, f) => f.endsWith(".java"))
+      .foreach(sourceFile => {
+        val program = readFile(sourceFile.getAbsolutePath)
+        val testName = itSubDir + "/" + subDir.getName + "/" + sourceFile.getName.stripSuffix(".java")
+        test(testName) {
+          testFn(program, sourceFile)
         }
-      }"""
-
-    assertOutput(program, "While", "5\n4\n3\n2\n1")
+    }))
   }
+
+  private def executeAllFiles(itSubDir: String, testFn: (Int, String, String, String) => Unit): Unit = {
+    forAllFiles(itSubDir, (program, file) => {
+      val base = file.getPath.stripSuffix(".java")
+      val mainClass = readFile(base + ".main")
+
+      val outPath = base + ".out"
+      val out = if (Files.exists(Paths.get(outPath))) readFile(outPath) else ""
+      executeTest(program, mainClass, (errCode, stdErr, stdOut) => testFn(errCode, stdErr, stdOut, out))
+    })
+  }
+
+  forAllFiles("compile", (program, file) =>
+    Compiler.compile(program, file.getName) should matchPattern { case Right(_) => })
+
+  forAllFiles("noncompile", (program, file) =>
+    Compiler.compile(program, file.getName) should matchPattern { case Left(_) => })
+
+  executeAllFiles("execute",
+    (errCode, stdErr, stdOut, expectedOut) => {
+      errCode shouldBe 0 withClue stdErr
+      stdOut shouldBe expectedOut
+    })
+
+  executeAllFiles("nonexecute",
+    (errCode, _, stdOut, _) => {
+      errCode shouldBe 1 withClue stdOut
+    })
 }

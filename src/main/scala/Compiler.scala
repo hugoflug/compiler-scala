@@ -13,8 +13,8 @@ object Compiler {
   def compileFromFile(filename: String, outDir: String): Unit =
     compileWithErrorMsgs(Source.fromFile(filename).mkString, filename, outDir)
 
-  def compileWithErrorMsgs(s: String, sourceFile: String, outDir: String): Unit =
-    compileToFiles(s, sourceFile, outDir) match {
+  def compileWithErrorMsgs(program: String, sourceFile: String, outDir: String): Unit =
+    compileToFiles(program, sourceFile, outDir) match {
       case Left(error) => println(ErrorFormatter.format(error))
       case Right(_) =>
     }
@@ -22,17 +22,17 @@ object Compiler {
   private def writeToFile(filename: String, s: String) =
     Files.write(Paths.get(filename), s.getBytes(StandardCharsets.UTF_8))
 
-  def compileToFiles(s: String, sourceFile: String, outDir: String): Either[CompilationError, Unit] =
-    compile(s, sourceFile) match {
+  def compileToFiles(program: String, sourceFile: String, outDir: String): Either[CompilationError, Unit] =
+    compile(program, sourceFile) match {
       case Left(error) => Left(error)
       case Right(assemblies) =>
         assemblies.foreach(a => writeToFile(outDir + "/" + a.filename, a.program))
         Right()
     }
 
-  def compile(s: String, sourceFile: String): Either[CompilationError, Seq[JasminAssembly]] =
+  def compile(program: String, sourceFile: String): Either[CompilationError, Seq[JasminAssembly]] =
     for {
-      syntaxTree <- Parser.parse(s)
+      syntaxTree <- Parser.parse(program)
       symTable <- SymbolTableCreator.create(syntaxTree)
       _ <- TypeChecker.typeCheck(syntaxTree, symTable)
       jasminAssembly = CodeGenerator.generate(syntaxTree, symTable, sourceFile)
