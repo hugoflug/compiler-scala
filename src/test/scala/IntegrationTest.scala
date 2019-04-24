@@ -7,6 +7,7 @@ import org.scalatest.{AppendedClues, Matchers}
 import scala.io.Source
 
 class IntegrationTest extends org.scalatest.FunSuite with Matchers with AppendedClues {
+  private val extensions = Array("JVM", "IWE", "CLE", "CGT", "CGE", "CEQ", "CNE", "BDJ")
 
   private def readFile(filename: String) =
     Source.fromFile(filename).mkString
@@ -19,13 +20,23 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
     (status, stdout.toString, stderr.toString)
   }
 
+  private def shouldSkip(program: String, extensions: Seq[String]): Boolean = {
+    val ext = """^/ *EXT:(.*)$""".r
+    val noExt = """^/ *EXT:!(.*)$""".r
+
+    val unsupportedExt = ext.findAllMatchIn(program).map(_.group(1)).exists(!extensions.contains(_))
+    val incompatibleExt = noExt.findAllMatchIn(program).map(_.group(1)).exists(extensions.contains(_))
+
+    unsupportedExt || incompatibleExt
+  }
+
   private def listFiles(dir: String) =
     new File(dir).listFiles
 
   private def executeTest(program: String, mainClass: String, testFn: (Int, String, String) => Unit): Unit = {
     val outDir = Files.createTempDirectory("compiler-scala").toString
     val result = Compiler.compileToFiles(program, mainClass + ".java", outDir)
-    result shouldBe Right()
+    result should matchPattern { case Right(_) => }
 
     val (_, _, stdErr) = run(s"java -jar jasmin.jar $outDir/$mainClass.jasmin -d $outDir", ".")
     stdErr shouldBe empty
@@ -40,9 +51,11 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
     subDirs.filter(_.isDirectory).foreach(subDir => subDir.listFiles((_, f) => f.endsWith(".java"))
       .foreach(sourceFile => {
         val program = readFile(sourceFile.getAbsolutePath)
-        val testName = itSubDir + "/" + subDir.getName + "/" + sourceFile.getName.stripSuffix(".java")
-        test(testName) {
-          testFn(program, sourceFile)
+        if (!shouldSkip(program, extensions)) {
+          val testName = itSubDir + "/" + subDir.getName + "/" + sourceFile.getName.stripSuffix(".java")
+          test(testName) {
+            testFn(program, sourceFile)
+          }
         }
     }))
   }

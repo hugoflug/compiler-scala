@@ -164,18 +164,9 @@ object Parser {
     result match {
       case f: Parsed.Failure =>
         if (debug) println(f.longMsg)
-        Left(ParseError(f.label))
+        Left(ParseError(f.msg))
       case Parsed.Success(value, _) =>
         Right(value)
     }
-  }
-
-  def parse_(s: String, debug: Boolean = false): Parsed[Program] = {
-    val result = fastparse.parse(s, program(_), verboseFailures = debug)
-    result match {
-      case p: Parsed.Failure => println(p.longMsg)
-      case _ =>
-    }
-    result
   }
 }
