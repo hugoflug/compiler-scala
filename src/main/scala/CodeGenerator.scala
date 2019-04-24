@@ -255,6 +255,28 @@ object CodeGenerator {
         asm(label) <++> gen(leftOp, c) <++> gen(rightOp, c) <++> genComparison(compareInstruct)
       case Parens(e, _) =>
         asm(label) <++> gen(e, c)
+      case Identifier(name, _) =>
+        val method = c.currentMethod.get
+        val localVar = oneOf(method.locals.get(name), method.params.get(name))
+
+        asm(label) <++>
+          (label =>
+            localVar match {
+              case Some(value) => value match {
+                case Var(_, IntType(), varNo) =>
+                  asm(label) <+> "iload " + varNo
+                case Var(_, BooleanType(), varNo) =>
+                  asm(label) <+> "iload " + varNo
+                case Var(_, _, varNo) =>
+                  asm(label) <+> "aload " + varNo
+              }
+              case None =>
+                val clazz = c.currentClass.get
+                val type_ = clazz.fields(name).type_
+                val fieldDesc = clazz.name + "/" + name
+                val typeDesc = typeDescriptor(type_)
+                asm(label) <+> "aload_0" <+> "getfield " + esc(fieldDesc) + " " + esc(typeDesc)
+            })
       case _ => asm(label)
     }
 }
