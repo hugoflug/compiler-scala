@@ -1,55 +1,54 @@
-abstract class SyntaxTreeNode
+abstract class SyntaxTreeNode(val index: Int)
 
-abstract class Expr extends SyntaxTreeNode
-case class IntLit(value: Int) extends Expr
-case class True() extends Expr
-case class False() extends Expr
-case class This() extends Expr
-case class Identifier(name: String) extends Expr
-case class NewArray(arraySize: Expr) extends Expr
-case class NewObject(typeName: Identifier) extends Expr
-case class Parens(expr: Expr) extends Expr
-case class ArrayLength(array: Expr) extends Expr
-case class MethodCall(obj: Expr, methodName: Identifier, args: Seq[Expr]) extends Expr
-case class ArrayLookup(array: Expr, index: Expr) extends Expr
-case class Not(expr: Expr) extends Expr
+abstract class Expr(override val index: Int) extends SyntaxTreeNode(index)
+case class IntLit(value: Int, override val index: Int) extends Expr(index)
+case class True(override val index: Int) extends Expr(index)
+case class False(override val index: Int) extends Expr(index)
+case class This(override val index: Int) extends Expr(index)
+case class Identifier(name: String, override val index: Int) extends Expr(index)
+case class NewArray(arraySize: Expr, override val index: Int) extends Expr(index)
+case class NewObject(typeName: Identifier, override val index: Int) extends Expr(index)
+case class Parens(expr: Expr, override val index: Int) extends Expr(index)
+case class ArrayLength(array: Expr, override val index: Int) extends Expr(index)
+case class MethodCall(obj: Expr, methodName: Identifier, args: Seq[Expr], override val index: Int) extends Expr(index)
+case class ArrayLookup(array: Expr, arrayIndex: Expr, override val index: Int) extends Expr(index)
+case class Not(expr: Expr, override val index: Int) extends Expr(index)
 
-abstract class BinaryOp(val leftOp: Expr, val rightOp: Expr) extends Expr
-case class Mult(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
-case class Plus(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
-case class Minus(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
-case class LessThan(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
-case class LessOrEqualThan(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
-case class GreaterThan(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
-case class GreaterOrEqualThan(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
-case class Equal(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
-case class NotEqual(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
-case class And(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
-case class Or(override val leftOp: Expr, override val rightOp: Expr) extends BinaryOp(leftOp, rightOp)
+abstract class BinaryOp(val leftOp: Expr, val rightOp: Expr, override val index: Int) extends Expr(index)
+case class Mult(override val leftOp: Expr, override val rightOp: Expr, override val index: Int) extends BinaryOp(leftOp, rightOp, index)
+case class Plus(override val leftOp: Expr, override val rightOp: Expr, override val index: Int) extends BinaryOp(leftOp, rightOp, index)
+case class Minus(override val leftOp: Expr, override val rightOp: Expr, override val index: Int) extends BinaryOp(leftOp, rightOp, index)
+case class LessThan(override val leftOp: Expr, override val rightOp: Expr, override val index: Int) extends BinaryOp(leftOp, rightOp, index)
+case class LessOrEqualThan(override val leftOp: Expr, override val rightOp: Expr, override val index: Int) extends BinaryOp(leftOp, rightOp, index)
+case class GreaterThan(override val leftOp: Expr, override val rightOp: Expr, override val index: Int) extends BinaryOp(leftOp, rightOp, index)
+case class GreaterOrEqualThan(override val leftOp: Expr, override val rightOp: Expr, override val index: Int) extends BinaryOp(leftOp, rightOp, index)
+case class Equal(override val leftOp: Expr, override val rightOp: Expr, override val index: Int) extends BinaryOp(leftOp, rightOp, index)
+case class NotEqual(override val leftOp: Expr, override val rightOp: Expr, override val index: Int) extends BinaryOp(leftOp, rightOp, index)
+case class And(override val leftOp: Expr, override val rightOp: Expr, override val index: Int) extends BinaryOp(leftOp, rightOp, index)
+case class Or(override val leftOp: Expr, override val rightOp: Expr, override val index: Int) extends BinaryOp(leftOp, rightOp, index)
 
-abstract class Type extends SyntaxTreeNode
-case class BooleanType() extends Type
-case class IntArrayType() extends Type
-case class IntType() extends Type
-case class ObjectType(name: String) extends Type
-case class Void() extends Type
+abstract class TypeNode(override val index: Int) extends SyntaxTreeNode(index)
+case class BooleanTypeNode(override val index: Int) extends TypeNode(index)
+case class IntArrayTypeNode(override val index: Int) extends TypeNode(index)
+case class IntTypeNode(override val index: Int) extends TypeNode(index)
+case class ObjectTypeNode(name: String, override val index: Int) extends TypeNode(index)
 
-abstract class Stmt extends SyntaxTreeNode
-case class ArrayAssign(array: Identifier, index: Expr, newValue: Expr) extends Stmt
-case class Assign(assignee: Identifier, newValue: Expr) extends Stmt
-case class Block(stmtList: Seq[Stmt]) extends Stmt
-case class If(condition: Expr, thenStmt: Stmt, elseStmt: Stmt) extends Stmt
-case class IfWithoutElse(condition: Expr, thenStmt: Stmt) extends Stmt
-case class Syso(printee: Expr) extends Stmt
-case class While(condition: Expr, stmt: Stmt) extends Stmt
+abstract class Stmt(override val index: Int) extends SyntaxTreeNode(index)
+case class ArrayAssign(array: Identifier, arrayIndex: Expr, newValue: Expr, override val index: Int) extends Stmt(index)
+case class Assign(assignee: Identifier, newValue: Expr, override val index: Int) extends Stmt(index)
+case class Block(stmtList: Seq[Stmt], override val index: Int) extends Stmt(index)
+case class If(condition: Expr, thenStmt: Stmt, elseStmt: Stmt, override val index: Int) extends Stmt(index)
+case class IfWithoutElse(condition: Expr, thenStmt: Stmt, override val index: Int) extends Stmt(index)
+case class Syso(printee: Expr, override val index: Int) extends Stmt(index)
+case class While(condition: Expr, stmt: Stmt, override val index: Int) extends Stmt(index)
 
 
-abstract class GenVarDecl(val typeName: Type, val name: Identifier) extends SyntaxTreeNode
-case class VarDecl(override val typeName: Type, override val name: Identifier) extends GenVarDecl(typeName, name)
-case class Formal(override val typeName: Type, override val name: Identifier) extends GenVarDecl(typeName, name)
+abstract class GenVarDecl(val typeName: TypeNode, val name: Identifier, override val index: Int) extends SyntaxTreeNode(index)
+case class VarDecl(override val typeName: TypeNode, override val name: Identifier, override val index: Int) extends GenVarDecl(typeName, name, index)
+case class Formal(override val typeName: TypeNode, override val name: Identifier, override val index: Int) extends GenVarDecl(typeName, name, index)
 
-case class MethodDecl(typeName: Type, name: Identifier, argList: Seq[Formal], varDeclList: Seq[VarDecl],
-                      stmts: Seq[Stmt], returnVal: Expr) extends SyntaxTreeNode
-case class ClassDecl(name: Identifier, varDecls: Seq[VarDecl], methodDecls: Seq[MethodDecl]) extends SyntaxTreeNode
-case class MainClass(name: Identifier, stdArgsName: Identifier, varDecls: Seq[VarDecl], stmts: Seq[Stmt]) extends SyntaxTreeNode
-case class Program(mainClass: MainClass, classDecls: Seq[ClassDecl]) extends SyntaxTreeNode
+case class MethodDecl(typeName: TypeNode, name: Identifier, argList: Seq[Formal], varDeclList: Seq[VarDecl],
+                      stmts: Seq[Stmt], returnVal: Expr, override val index: Int) extends SyntaxTreeNode(index)
+case class ClassDecl(name: Identifier, varDecls: Seq[VarDecl], methodDecls: Seq[MethodDecl], override val index: Int) extends SyntaxTreeNode(index)
+case class MainClass(name: Identifier, stdArgsName: Identifier, varDecls: Seq[VarDecl], stmts: Seq[Stmt], override val index: Int) extends SyntaxTreeNode(index)
+case class Program(mainClass: MainClass, classDecls: Seq[ClassDecl], override val index: Int) extends SyntaxTreeNode(index)

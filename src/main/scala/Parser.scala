@@ -1,102 +1,102 @@
 object Parser {
   import fastparse._, JavaWhitespace._
 
-  case class ParseError(msg: String) extends CompilationError
+  case class ParseError(msg: String, override val index: Int) extends CompilationError(index)
 
   def stmt[_: P]: P[Stmt] = P(assign | arrayAssign | block | syso | while_ | ifStmt)
 
-  def ifStmt[_: P] = P("if" ~/ "(" ~ expr ~ ")" ~ stmt ~ ("else" ~ stmt).?)
+  def ifStmt[_: P] = P(Index ~ "if" ~/ "(" ~ expr ~ ")" ~ stmt ~ ("else" ~ stmt).?)
     .map({
-      case(cond, then_, None) => IfWithoutElse(cond, then_)
-      case(cond, then_, Some(else_)) => If(cond, then_, else_)
+      case(index, cond, then_, None) => IfWithoutElse(cond, then_, index)
+      case(index, cond, then_, Some(else_)) => If(cond, then_, else_, index)
     })
 
-  def assign[_: P] = P(id ~ "=" ~/ expr ~ ";")
-    .map({ case(id, newVal) => Assign(id, newVal) })
+  def assign[_: P] = P(Index ~ id ~ "=" ~/ expr ~ ";")
+    .map({ case(index, id, newVal) => Assign(id, newVal, index) })
 
-  def arrayAssign[_: P] = P(id ~ "[" ~ expr ~ "]" ~ "=" ~/ expr ~ ";")
-    .map({ case(array, index, newVal) => ArrayAssign(array, index, newVal) })
+  def arrayAssign[_: P] = P(Index ~ id ~ "[" ~ expr ~ "]" ~ "=" ~/ expr ~ ";")
+    .map({ case(index, array, arrayIndex, newVal) => ArrayAssign(array, arrayIndex, newVal, index) })
 
-  def block[_: P] = P("{" ~/ stmt.rep ~ "}")
-    .map(s => Block(s))
+  def block[_: P] = P(Index ~ "{" ~/ stmt.rep ~ "}")
+    .map({ case (index, s) => Block(s, index) })
 
-  def syso[_: P] = P("System.out.println" ~/ "(" ~ expr ~ ")" ~ ";")
-    .map(e => Syso(e))
+  def syso[_: P] = P(Index ~ "System.out.println" ~/ "(" ~ expr ~ ")" ~ ";")
+    .map({ case (index, e) => Syso(e, index)})
 
-  def while_[_: P] = P("while" ~/ "(" ~ expr ~ ")" ~ stmt)
-    .map({ case(cond, stmt) => While(cond, stmt) })
+  def while_[_: P] = P(Index ~ "while" ~/ "(" ~ expr ~ ")" ~ stmt)
+    .map({ case(index, cond, stmt) => While(cond, stmt, index) })
 
-  def intLit[_: P] = P("0" | (CharIn("0-9") ~/ CharIn("1-9").rep)).!
-    .map(s => IntLit(s.toInt))
+  def intLit[_: P] = P(Index ~ ("0" | (CharIn("0-9") ~/ CharIn("1-9").rep)).!)
+    .map({ case(index, s) => IntLit(s.toInt, index) })
 
-  def true_[_: P] = P("true")
-    .map(_ => True())
+  def true_[_: P] = P(Index ~ "true")
+    .map(index => True(index))
 
-  def false_[_: P] = P("false")
-    .map(_ => False())
+  def false_[_: P] = P(Index ~ "false")
+    .map(index => False(index))
 
-  def this_[_: P] = P("this")
-    .map(_ => This())
+  def this_[_: P] = P(Index ~ "this")
+    .map(index => This(index))
 
   def keyword[_: P] = P("class" | "public" | "static" | "void" | "String" | "return" | "int" | "boolean" | "if" |
     "else" | "while" | "length" | "true" | "false" | "this" | "new")
 
   def startId[_: P] = P(CharIn("a-z") | CharIn("A-Z") | "_")
-  def id[_: P] = P(!keyword ~ startId ~~ (startId | CharIn("0-9")).repX).!
-    .map(s => Identifier(s))
+  def id[_: P] = P(Index ~ (!keyword ~ startId ~~ (startId | CharIn("0-9")).repX).!)
+    .map({ case(index, s) => Identifier(s, index) })
 
-  def newArray[_: P] = P("new" ~ "int" ~ "[" ~ expr ~ "]")
-    .map(e => NewArray(e))
+  def newArray[_: P] = P(Index ~ "new" ~ "int" ~ "[" ~ expr ~ "]")
+    .map({ case(index, e) => NewArray(e, index) })
 
-  def newObject[_: P] = P("new" ~ id ~ "(" ~ ")")
-    .map(i => NewObject(i))
+  def newObject[_: P] = P(Index ~ "new" ~ id ~ "(" ~ ")")
+    .map({ case(index, e) => NewObject(e, index) })
 
   def exprVal[_: P] = P(newArray | newObject | intLit | true_ | false_ | this_ | id)
 
   def expr[_: P] = or
 
   def or[_: P] = P(and ~ ("||" ~/ and).rep)
-    .map({ case (head, tail) => tail.foldLeft(head)(Or) })
+    .map({ case (head, tail) => tail.foldLeft(head)((e1, e2) => Or(e1, e2, 0 /*TODO*/)) })
 
   def and[_: P] = P(equality ~ ("&&" ~/ equality).rep)
-    .map({ case (head, tail) => tail.foldLeft(head)(And) })
+    .map({ case (head, tail) => tail.foldLeft(head)((e1, e2) => And(e1, e2, 0 /*TODO*/)) })
 
   def equality[_: P] = P(compare ~ (("==" | "!=").! ~/ compare).rep)
     .map( { case (head, tail) => tail.foldLeft(head)({
-      case (leftOp, ("==", rightOp)) => Equal(leftOp, rightOp)
-      case (leftOp, ("!=", rightOp)) => NotEqual(leftOp, rightOp)
+      case (leftOp, ("==", rightOp)) => Equal(leftOp, rightOp, 0 /*TODO*/)
+      case (leftOp, ("!=", rightOp)) => NotEqual(leftOp, rightOp, 0 /*TODO*/)
     })})
 
   def compare[_: P] = P(plusMinus ~ ((">=" | "<=" | ">" | "<").! ~ plusMinus).rep)
     .map( { case (head, tail) => tail.foldLeft(head)({
-      case (leftOp, (">", rightOp)) => GreaterThan(leftOp, rightOp)
-      case (leftOp, ("<", rightOp)) => LessThan(leftOp, rightOp)
-      case (leftOp, (">=", rightOp)) => GreaterOrEqualThan(leftOp, rightOp)
-      case (leftOp, ("<=", rightOp)) => LessOrEqualThan(leftOp, rightOp)
+      case (leftOp, (">", rightOp)) => GreaterThan(leftOp, rightOp, 0 /*TODO*/)
+      case (leftOp, ("<", rightOp)) => LessThan(leftOp, rightOp, 0 /*TODO*/)
+      case (leftOp, (">=", rightOp)) => GreaterOrEqualThan(leftOp, rightOp, 0 /*TODO*/)
+      case (leftOp, ("<=", rightOp)) => LessOrEqualThan(leftOp, rightOp, 0 /*TODO*/)
     })})
 
   def plusMinus[_: P] = P(mult ~ (CharIn("+\\-").! ~/ mult).rep)
     .map( { case (head, tail) => tail.foldLeft(head)({
-      case (leftOp, ("+", rightOp)) => Plus(leftOp, rightOp)
-      case (leftOp, ("-", rightOp)) => Minus(leftOp, rightOp)
+      case (leftOp, ("+", rightOp)) => Plus(leftOp, rightOp, 0 /*TODO*/)
+      case (leftOp, ("-", rightOp)) => Minus(leftOp, rightOp, 0 /*TODO*/)
     })})
 
   def mult[_: P] = P(exprInfo ~ ("*" ~/ exprInfo).rep)
-    .map({ case (head, tail) => tail.foldLeft(head)(Mult) })
+    .map({ case (head, tail) => tail.foldLeft(head)((e1, e2) => Mult(e1, e2, 0 /*TODO*/)) })
 
-  def not[_: P]: P[Not] = P("!" ~/ expr)
-    .map(e => Not(e))
+  def not[_: P]: P[Not] = P(Index ~ "!" ~/ expr)
+    .map({ case (index, e) => Not(e, index) })
 
   def exprInfo[_: P]: P[Expr] = P((parens | not | exprVal).flatMap(e => arrayLength(e) | methodCall(e) | arrayLookup(e) | empty(e)))
 
   def empty[_: P](expr: Expr) = P("")
     .map(_ => expr)
 
-  def parens[_: P]: P[Parens] = P("(" ~/ expr ~ ")")
-    .map(e => Parens(e))
+  def parens[_: P]: P[Parens] = P(Index ~ "(" ~/ expr ~ ")")
+    .map({ case (index, e) => Parens(e, index) })
 
-  def arrayLength[_: P](array: Expr) = P("." ~ "length")
-    .map(_ => ArrayLength(array))
+  def arrayLength[_: P](array: Expr) = P(Index ~ "." ~ "length")
+    .map(index => ArrayLength(array, index))
 
   def exprList[_: P] = P((expr ~ ("," ~/ expr).rep).?)
     .map({
@@ -104,31 +104,31 @@ object Parser {
       case None => Seq()
     })
 
-  def methodCall[_: P](receiver: Expr) = P("." ~ id ~ "(" ~/ exprList ~ ")")
-    .map({ case (methodName, args) => MethodCall(receiver, methodName, args) })
+  def methodCall[_: P](receiver: Expr) = P(Index ~ "." ~ id ~ "(" ~/ exprList ~ ")")
+    .map({ case (index, methodName, args) => MethodCall(receiver, methodName, args, index) })
 
-  def arrayLookup[_: P](array: Expr) = P("[" ~/ expr ~ "]")
-    .map(index => ArrayLookup(array, index))
+  def arrayLookup[_: P](array: Expr) = P(Index ~ "[" ~/ expr ~ "]")
+    .map({ case (index, arrayIndex) => ArrayLookup(array, arrayIndex, index) })
 
-  def type_[_: P]: P[Type] = P(intArrayType | booleanType | intType | objectType)
+  def type_[_: P]: P[TypeNode] = P(intArrayType | booleanType | intType | objectType)
 
-  def intArrayType[_: P] = P("int" ~ "[]")
-    .map(_ => IntArrayType())
+  def intArrayType[_: P] = P(Index ~ "int" ~ "[]")
+    .map(index => IntArrayTypeNode(index))
 
-  def booleanType[_: P] = P("boolean")
-    .map(_ => BooleanType())
+  def booleanType[_: P] = P(Index ~ "boolean")
+    .map(index => BooleanTypeNode(index))
 
-  def intType[_: P] = P("int")
-    .map(_ => IntType())
+  def intType[_: P] = P(Index ~ "int")
+    .map(index => IntTypeNode(index))
 
-  def objectType[_: P] = P(id)
-    .map(i => ObjectType(i.name))
+  def objectType[_: P] = P(Index ~ id)
+    .map({ case (index, i) => ObjectTypeNode(i.name, index) })
 
-  def varDecl[_: P] = P(type_ ~ id ~ ";")
-    .map({ case (type_, id) => VarDecl(type_, id) })
+  def varDecl[_: P] = P(Index ~ type_ ~ id ~ ";")
+    .map({ case (index, type_, id) => VarDecl(type_, id, index) })
 
-  def flattenFormalList(parsedInfo: (Type, Identifier, Seq[(Type, Identifier)])): Seq[Formal] = parsedInfo match {
-    case (hType, hName, tail) => Formal(hType, hName) +: tail.map({ case(type_, name) => Formal(type_, name)})
+  def flattenFormalList(parsedInfo: (TypeNode, Identifier, Seq[(TypeNode, Identifier)])): Seq[Formal] = parsedInfo match {
+    case (hType, hName, tail) => Formal(hType, hName, 0 /*TODO*/) +: tail.map({ case(type_, name) => Formal(type_, name, 0 /*TODO*/)})
   }
 
   def formalList[_: P] = P(type_ ~ id ~ ("," ~ type_ ~ id).rep).?
@@ -137,37 +137,37 @@ object Parser {
       case None => Seq()
     })
 
-  def methodDecl[_: P] = P("public" ~ type_ ~ id ~ "(" ~ formalList ~ ")" ~
+  def methodDecl[_: P] = P(Index ~ "public" ~ type_ ~ id ~ "(" ~ formalList ~ ")" ~
     "{" ~/
       varDecl.rep ~
       stmt.rep ~
       "return" ~ expr ~ ";" ~
     "}")
     .map({
-      case(type_, name, formals, varDecls, stmts, returnVal) =>
-        MethodDecl(type_, name, formals, varDecls, stmts, returnVal)
+      case(index, type_, name, formals, varDecls, stmts, returnVal) =>
+        MethodDecl(type_, name, formals, varDecls, stmts, returnVal, index)
     })
 
-  def classDecl[_: P] = P("class" ~ id ~ "{" ~ varDecl.rep ~ methodDecl.rep ~ "}")
-    .map({ case(name, varDecls, methodDecls) => ClassDecl(name, varDecls, methodDecls) })
+  def classDecl[_: P] = P(Index ~ "class" ~ id ~ "{" ~ varDecl.rep ~ methodDecl.rep ~ "}")
+    .map({ case(index, name, varDecls, methodDecls) => ClassDecl(name, varDecls, methodDecls, index) })
 
-  def mainClass[_: P] = P("class" ~ id ~ "{" ~
+  def mainClass[_: P] = P(Index ~ "class" ~ id ~ "{" ~
       "public" ~ "static" ~ "void" ~ "main" ~ "(" ~ "String" ~ "[" ~ "]" ~ id ~ ")" ~ "{" ~
         varDecl.rep ~
         stmt.rep ~
       "}" ~
     "}")
-    .map({ case(name, stdArgsName, varDecls, stmts) => MainClass(name, stdArgsName, varDecls, stmts)})
+    .map({ case(index, name, stdArgsName, varDecls, stmts) => MainClass(name, stdArgsName, varDecls, stmts, index)})
 
-  def program[_: P] = P(CharIn(" \n").rep ~ mainClass ~ classDecl.rep ~ End)
-    .map({ case(mainClass, classDecls) => Program(mainClass, classDecls) })
+  def program[_: P] = P(CharIn(" \n").rep ~ Index ~ mainClass ~ classDecl.rep ~ End)
+    .map({ case(index, mainClass, classDecls) => Program(mainClass, classDecls, index) })
 
   def parse(s: String, debug: Boolean = true): Either[ParseError, Program] = {
     val result = fastparse.parse(s, program(_), verboseFailures = debug)
     result match {
       case f: Parsed.Failure =>
         if (debug) println(f.longMsg)
-        Left(ParseError(f.msg))
+        Left(ParseError(f.msg, f.index))
       case Parsed.Success(value, _) =>
         Right(value)
     }

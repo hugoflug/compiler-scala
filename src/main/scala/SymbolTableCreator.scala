@@ -1,4 +1,5 @@
 import EitherUtils.orFirstError
+import TypeChecker.{Type, Void}
 
 object SymbolTableCreator {
   type SymbolTable = Map[String, ClassTable]
@@ -7,7 +8,7 @@ object SymbolTableCreator {
   case class MethodTable(name: String, returnType: Type, params: Map[String, Var], locals: Map[String, Var])
   case class Var(name: String, type_ : Type, varNo: Int)
 
-  case class RedefinitionError(name: String) extends CompilationError
+  case class RedefinitionError(name: String, override val index: Int) extends CompilationError(index)
 
   def create(program: Program): Either[RedefinitionError, SymbolTable] =
     for {
@@ -41,17 +42,18 @@ object SymbolTableCreator {
       name = methodDecl.name.name
       returnType = methodDecl.typeName
       _ <- assertNoDuplicates(params.keys ++ locals.keys ++ fieldNames)
-    } yield MethodTable(name, returnType, params, locals)
+    } yield MethodTable(name, TypeChecker.typeOfNode(returnType), params, locals)
 
   private def createVarMap(genVarDecls: Seq[GenVarDecl]): Map[String, Seq[Var]] =
-    genVarDecls.zipWithIndex.map({ case(v, i) => Var(v.name.name, v.typeName, i) }).groupBy(_.name)
+    genVarDecls.zipWithIndex.map({ case(v, i) =>
+      Var(v.name.name, TypeChecker.typeOfNode(v.typeName), i) }).groupBy(_.name)
 
   private def assertNoDuplicates[A, B](it: Iterable[A]): R[Map[A, A]] =
     dedup(it.groupBy(a => a).mapValues(_.toSeq))
 
   private def dedup[A, B](map: Map[A, Seq[B]]): R[Map[A, B]] =
     map.find({ case (_, v) => v.length > 1 }) match {
-      case Some((key, _)) => Left(RedefinitionError(key.toString))
+      case Some((key, _)) => Left(RedefinitionError(key.toString, 0 /*TODO*/))
       case None => Right(map.mapValues(_.head))
     }
 }

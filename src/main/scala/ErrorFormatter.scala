@@ -3,19 +3,38 @@ import SymbolTableCreator.RedefinitionError
 import TypeChecker.{TypeNotInListError, UndefinedNameError, WrongArgumentAmountError, WrongTypeError}
 
 object ErrorFormatter {
-  def format(error: CompilationError) =
+  def format(error: CompilationError, program: String, sourceFile: String) =
+    s"${formatError(error)} ${formatSourcePos(error.index, program)} in $sourceFile"
+
+  private def formatError(error: CompilationError) =
     error match {
-      case WrongTypeError(actualType, expectedType) =>
+      case WrongTypeError(actualType, expectedType, _) =>
         s"Type error: Expected $expectedType but was $actualType"
-      case TypeNotInListError(actualType, expectedTypes) =>
+      case TypeNotInListError(actualType, expectedTypes, _) =>
         s"Type error: Expected one of ${expectedTypes.mkString(", ")} but was $actualType"
-      case WrongArgumentAmountError(actual, expected) =>
+      case WrongArgumentAmountError(actual, expected, _) =>
         s"Wrong number of arguments: Expected $expected but was $actual "
-      case UndefinedNameError(name) =>
+      case UndefinedNameError(name, _) =>
         s"Undefined name: $name "
-      case RedefinitionError(name) =>
+      case RedefinitionError(name, _) =>
         s"Redefinition error: $name already defined"
-      case ParseError(msg) =>
+      case ParseError(msg, _) =>
         s"Parse error: $msg"
     }
+
+  private def formatSourcePos(index: Int, program: String) = {
+    val srcPos = sourcePos(program, index)
+    s"at ${srcPos.row}:${srcPos.column}"
+  }
+
+  case class SourcePosition(row: Int, column: Int)
+
+  def sourcePos(program: String, index: Int): SourcePosition = {
+    val lineLengths = program.split("\n").map(_.length).toList
+    sourcePos(lineLengths, index + 1, 1)
+  }
+
+  private def sourcePos(lineLengths: List[Int], index: Int, lines: Int): SourcePosition =
+    if (index <= lineLengths.head) SourcePosition(lines, index)
+    else sourcePos(lineLengths.tail, index - lineLengths.head - 1, lines + 1)
 }

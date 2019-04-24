@@ -2,13 +2,20 @@ import SymbolTableCreator.{ClassTable, MethodTable, SymbolTable}
 import EitherUtils.orFirstError
 
 object TypeChecker {
-  abstract class TypeError extends CompilationError
-  case class WrongTypeError(actualType: Type, expectedType: Type) extends TypeError
-  case class TypeNotInListError(actualType: Type, expectedTypes: Seq[Type]) extends TypeError
-  case class WrongArgumentAmountError(actual: Int, expected: Int) extends TypeError
-  case class UndefinedNameError(name: String) extends TypeError
+  abstract class TypeError(override val index: Int) extends CompilationError(index)
+  case class WrongTypeError(actualType: Type, expectedType: Type, override val index: Int) extends TypeError(index)
+  case class TypeNotInListError(actualType: Type, expectedTypes: Seq[Type], override val index: Int) extends TypeError(index)
+  case class WrongArgumentAmountError(actual: Int, expected: Int, override val index: Int) extends TypeError(index)
+  case class UndefinedNameError(name: String, override val index: Int) extends TypeError(index)
 
   case class Context(symTable: SymbolTable, currentClass: Option[ClassTable], currentMethod: Option[MethodTable])
+
+  abstract class Type
+  case class BooleanType() extends Type
+  case class IntArrayType() extends Type
+  case class IntType() extends Type
+  case class ObjectType(name: String) extends Type
+  case class Void() extends Type
 
   def typeCheck(program: Program, symTable: SymbolTable): Either[TypeError, Unit] = {
     val context = Context(symTable, None, None)
@@ -24,17 +31,17 @@ object TypeChecker {
   def typeCheck(expr: Expr, c: Context): Either[TypeError, Type] =
     expr match {
       case b: BinaryOp => b match {
-        case And(_, _) | Or(_, _) =>
+        case And(_, _, _) | Or(_, _, _) =>
           assertBinOp(b, BooleanType(), BooleanType(), BooleanType(), c)
-        case Plus(_, _) | Minus(_, _) | Mult(_, _) =>
+        case Plus(_, _, _) | Minus(_, _, _) | Mult(_, _, _) =>
           assertBinOp(b, IntType(), IntType(), IntType(), c)
-        case GreaterThan(_, _) | GreaterOrEqualThan(_, _) | LessThan(_, _) | LessOrEqualThan(_, _) =>
+        case GreaterThan(_, _, _) | GreaterOrEqualThan(_, _, _) | LessThan(_, _, _) | LessOrEqualThan(_, _, _) =>
           assertBinOp(b, IntType(), IntType(), BooleanType(), c)
-        case Equal(_, _) | NotEqual(_, _) =>
+        case Equal(_, _, _) | NotEqual(_, _, _) =>
           for {
             leftOpType <- typeCheck(b.leftOp, c)
             rightOpType <- typeCheck(b.rightOp, c)
-            _ <- assertType(leftOpType, rightOpType)
+            _ <- assertType(leftOpType, rightOpType, b.index)
           } yield BooleanType()
       }
       case a: ArrayLength =>
@@ -44,12 +51,12 @@ object TypeChecker {
       case a: ArrayLookup =>
         for {
           _ <- assertType(a.array, IntArrayType(), c)
-          _ <- assertType(a.index, IntType(), c)
+          _ <- assertType(a.arrayIndex, IntType(), c)
         } yield IntType()
       case n: NewObject =>
         val name = n.typeName.name
         if (c.symTable.contains(name)) Right(ObjectType(name))
-        else Left(UndefinedNameError(name))
+        else Left(UndefinedNameError(name, n.index))
       case n: NewArray =>
         for {
           _ <- assertType(n.arraySize, IntType(), c)
@@ -63,7 +70,7 @@ object TypeChecker {
         val classFields = c.currentClass.get.fields
         oneOf(method.locals.get(i.name), method.params.get(i.name), classFields.get(i.name))
           .map(_.type_)
-          .toRight(UndefinedNameError(i.name))
+          .toRight(UndefinedNameError(i.name, i.index))
       case p: Parens =>
         typeCheck(p.expr, c)
       case _: False =>
@@ -75,60 +82,70 @@ object TypeChecker {
       case call: MethodCall =>
         for {
           objType <- typeCheck(call.obj, c)
-          _ <- assertIsObjectType(objType, c)
+          _ <- assertIsObjectType(objType, c, call.obj.index)
           cObjType = objType.asInstanceOf[ObjectType]
           argTypes <- orFirstError(call.args.map(typeCheck(_, c)))
-          returnType <- getMethodReturnType(cObjType.name, call.methodName.name, argTypes, c.symTable)
+          returnType <- getMethodReturnType(cObjType.name, call.methodName.name, argTypes, c.symTable, call.index)
         } yield returnType
-      case _: This =>
-        if (c.currentClass.isEmpty) Left(UndefinedNameError("this"))
+      case t: This =>
+        if (c.currentClass.isEmpty) Left(UndefinedNameError("this", t.index))
         else Right(ObjectType(c.currentClass.get.name))
     }
 
-  private def assertTypeExists(typeName: Type, symTable: SymbolTable) =
+  def typeOfNode(typeNode: TypeNode) = typeNode match {
+    case _: IntTypeNode =>
+      IntType()
+    case _: BooleanTypeNode =>
+      BooleanType()
+    case ObjectTypeNode(name, _) =>
+      ObjectType(name)
+  }
+
+  private def assertTypeExists(typeName: Type, symTable: SymbolTable, index: Int) =
     typeName match {
       case ObjectType(name) =>
         if (symTable.contains(name)) Right()
-        else Left(UndefinedNameError(name))
+        else Left(UndefinedNameError(name, index))
       case _ => Right()
     }
 
-  private def assertIsObjectType(t: Type, context: Context) =
+  private def assertIsObjectType(t: Type, context: Context, index: Int) =
     if (t.isInstanceOf[ObjectType]) Right()
-    else Left(WrongTypeError(t, ObjectType("")))
+    else Left(WrongTypeError(t, ObjectType(""), index))
 
-  private def assertTypeListEq(expectedTypes: Seq[Type], actualTypes: Seq[Type]) =
+  private def assertTypeListEq(expectedTypes: Seq[Type], actualTypes: Seq[Type], index: Int) =
     expectedTypes.zip(actualTypes).find(p => p._1 != p._2) match {
-      case Some((expected, actual)) => Left(WrongTypeError(actual, expected))
+      case Some((expected, actual)) => Left(WrongTypeError(actual, expected, index))
       case None => Right()
     }
 
-  private def assertArgAmountEq(expectedArgCount: Int, actualArgCount: Int) =
+  private def assertArgAmountEq(expectedArgCount: Int, actualArgCount: Int, index: Int) =
     if (expectedArgCount == actualArgCount) Right()
-    else Left(WrongArgumentAmountError(actualArgCount, expectedArgCount))
+    else Left(WrongArgumentAmountError(actualArgCount, expectedArgCount, index))
 
-  private def getMethodReturnType(className: String, methodName: String, params: Seq[Type], symTable: SymbolTable) =
+  private def getMethodReturnType(className: String, methodName: String, params: Seq[Type], symTable: SymbolTable,
+                                  index: Int) =
     for {
-      classTable <- symTable.get(className).toRight(UndefinedNameError(className))
-      methodTable <- classTable.methods.get(methodName).toRight(UndefinedNameError(methodName))
+      classTable <- symTable.get(className).toRight(UndefinedNameError(className, index))
+      methodTable <- classTable.methods.get(methodName).toRight(UndefinedNameError(methodName, index))
       expectedParams = methodTable.params.values.toSeq
-      _ <- assertArgAmountEq(expectedParams.length, params.length)
-      _ <- assertTypeListEq(expectedParams.map(_.type_), params)
+      _ <- assertArgAmountEq(expectedParams.length, params.length, index)
+      _ <- assertTypeListEq(expectedParams.map(_.type_), params, index)
     } yield methodTable.returnType
 
   private def assertType(expr: Expr, expected: Type, context: Context): Either[TypeError, Unit] =
     for {
       type_ <- typeCheck(expr, context)
-      _ <- assertType(type_, expected)
+      _ <- assertType(type_, expected, expr.index)
     } yield ()
 
-  private def assertType(actual: Type, expected: Type) =
+  private def assertType(actual: Type, expected: Type, index: Int) =
     if (actual == expected) Right()
-    else Left(WrongTypeError(actual, expected))
+    else Left(WrongTypeError(actual, expected, index))
 
-  private def assertOneOfTypes(actual: Type, expected: Seq[Type]) =
+  private def assertOneOfTypes(actual: Type, expected: Seq[Type], index: Int) =
     if (expected.contains(actual)) Right()
-    else Left(TypeNotInListError(actual, expected))
+    else Left(TypeNotInListError(actual, expected, index))
 
   private def typeCheckAll(nodes: Seq[SyntaxTreeNode], context: Context) =
     nodes.map(typeCheck(_, context)).find(_.isLeft) match {
@@ -167,14 +184,14 @@ object TypeChecker {
           _ <- typeCheckAll(m.argList, newContext)
           _ <- typeCheckAll(m.varDeclList, newContext)
           _ <- typeCheckAll(m.stmts, newContext)
-          _ <- assertType(m.returnVal, m.typeName, newContext)
+          _ <- assertType(m.returnVal, typeOfNode(m.typeName), newContext)
         } yield ()
       case v: VarDecl =>
-        assertTypeExists(v.typeName, c.symTable)
+        assertTypeExists(typeOfNode(v.typeName), c.symTable, v.index)
       case s: Syso =>
         for {
           printeeType <- typeCheck(s.printee, c)
-          _ <- assertOneOfTypes(printeeType, Seq(IntType(), BooleanType()))
+          _ <- assertOneOfTypes(printeeType, Seq(IntType(), BooleanType()), s.printee.index)
         } yield ()
       case w: While =>
         for {
@@ -193,19 +210,19 @@ object TypeChecker {
           _ <- typeCheck(i.thenStmt, c)
         } yield ()
       case f: Formal =>
-        assertTypeExists(f.typeName, c.symTable)
+        assertTypeExists(typeOfNode(f.typeName), c.symTable, f.index)
       case b: Block =>
         typeCheckAll(b.stmtList, c)
       case a: Assign =>
         for {
           assigneeType <- typeCheck(a.assignee, c)
           newValType <- typeCheck(a.newValue, c)
-          _ <- assertType(assigneeType, newValType)
+          _ <- assertType(assigneeType, newValType, a.assignee.index)
         } yield ()
       case a: ArrayAssign =>
         for {
           _<- assertType(a.array, IntArrayType(), c)
-          _<- assertType(a.index, IntType(), c)
+          _<- assertType(a.arrayIndex, IntType(), c)
           _<- assertType(a.newValue, IntType(), c)
         } yield ()
     }

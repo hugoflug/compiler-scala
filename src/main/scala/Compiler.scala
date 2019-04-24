@@ -15,7 +15,7 @@ object Compiler {
 
   def compileWithErrorMsgs(program: String, sourceFile: String, outDir: String): Unit =
     compileToFiles(program, sourceFile, outDir) match {
-      case Left(error) => println(ErrorFormatter.format(error))
+      case Left(error) => println(ErrorFormatter.format(error, program, sourceFile))
       case Right(_) =>
     }
 

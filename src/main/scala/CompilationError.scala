@@ -1,1 +1,1 @@
-abstract class CompilationError
+abstract class CompilationError(val index: Int)

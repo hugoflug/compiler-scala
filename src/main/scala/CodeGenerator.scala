@@ -1,5 +1,5 @@
 import SymbolTableCreator.{SymbolTable, Var}
-import TypeChecker.Context
+import TypeChecker.{BooleanType, Context, IntArrayType, IntType, ObjectType, Type, typeOfNode}
 
 object CodeGenerator {
   case class JasminAssembly(filename: String, program: String)
@@ -60,11 +60,12 @@ object CodeGenerator {
       case BooleanType() => "I"
     }
 
-  private def methodDescriptor(className: String, methodName: String,  types: Seq[Type], returnType: Type) =
+  private def methodDescriptor(className: String, methodName: String, types: Seq[Type], returnType: Type) =
     className + "/" + methodName + "(" + types.map(typeDescriptor).mkString + ")" + typeDescriptor(returnType)
 
   private def methodDescriptor(methodName: String, formals: Seq[Formal], returnType: Type) =
-    methodName + "(" + formals.map(_.typeName).map(typeDescriptor).mkString + ")" + typeDescriptor(returnType)
+    methodName + "(" + formals.map(t => typeOfNode(t.typeName))
+      .map(typeDescriptor).mkString + ")" + typeDescriptor(returnType)
 
   private def genAll(nodes: Seq[SyntaxTreeNode], c: Context)(label: Int): CodegenResult =
     nodes.map(n => gen(n, c)(_)).foldLeft(asm(label))(_ <++> _)
@@ -96,7 +97,7 @@ object CodeGenerator {
       ".class public " + esc(classDecl.name.name) <+>
       ".super java/lang/Object" <+>
       classDecl.varDecls.map(
-        v => ".field public " + esc(v.name.name) + " " + esc(typeDescriptor(v.typeName))).mkString <+>
+        v => ".field public " + esc(v.name.name) + " " + esc(typeDescriptor(typeOfNode(v.typeName)))).mkString <+>
       ".method public <init>()V" <+>
       ".limit stack 1" <+>
       ".limit locals 1" <+>
@@ -111,10 +112,10 @@ object CodeGenerator {
 
   private def gen(node: SyntaxTreeNode, c: Context)(label: Int): CodegenResult =
     node match {
-      case ArrayAssign(array, index, newValue) =>
+      case ArrayAssign(array, index, newValue, _) =>
         asm(label) <++> gen(array, c) <++> gen(index, c) <++> gen(newValue, c) <+> "iastore"
 
-      case Assign(Identifier(assignee), newValue) =>
+      case Assign(Identifier(assignee, _), newValue, _) =>
         val method = c.currentMethod.get
         val methodVars = oneOf(method.locals.get(assignee), method.params.get(assignee))
 
@@ -137,10 +138,10 @@ object CodeGenerator {
                 asm(label) <+> "aload_0" <+> "swap" <+> "putfield " + esc(fieldDesc) + " " + esc(typeDesc)
             })
 
-      case Block(stmtList) =>
+      case Block(stmtList, _) =>
         asm(label) <++> genAll(stmtList, c)
 
-      case MethodDecl(type_, Identifier(name), argList, varDeclList, stmts, returnVal) =>
+      case MethodDecl(type_, Identifier(name, _), argList, varDeclList, stmts, returnVal, _) =>
         val methodTable = c.symTable(c.currentClass.get.name).methods(name)
         val newContext = c.copy(currentMethod = Some(methodTable))
         val methodDescr = methodDescriptor(name, argList, methodTable.returnType)
@@ -154,12 +155,12 @@ object CodeGenerator {
           genAll(stmts, newContext) <++>
           gen(returnVal, newContext) <+>
           (type_ match {
-            case IntType() | BooleanType() => "ireturn"
+            case IntTypeNode(_) | BooleanTypeNode(_) => "ireturn"
             case _ => "areturn"
           }) <+>
           ".end method"
 
-      case While(condition, stmt) =>
+      case While(condition, stmt, _) =>
         val start = label
         val after = label + 1
         asm(label + 2) <+>
@@ -170,7 +171,7 @@ object CodeGenerator {
           "goto l" + start <+>
           "l" + after + ":"
 
-      case Syso(printee) =>
+      case Syso(printee, _) =>
         val printeeType = TypeChecker.getType(printee, c)
         asm(label) <+>
           "getstatic java/lang/System/out Ljava/io/PrintStream;" <++>
@@ -202,57 +203,57 @@ object CodeGenerator {
         asm(label) <++> genBinaryOp(p, "iadd", c)
       case m: Minus =>
         asm(label) <++> genBinaryOp(m, "isub", c)
-      case GreaterThan(leftOp, rightOp) =>
+      case GreaterThan(leftOp, rightOp, _) =>
         asm(label) <++> gen(leftOp, c) <++> gen(rightOp, c) <++> genComparison("if_icmpgt")
-      case GreaterOrEqualThan(leftOp, rightOp) =>
+      case GreaterOrEqualThan(leftOp, rightOp, _) =>
         asm(label) <++> gen(leftOp, c) <++> gen(rightOp, c) <++> genComparison("if_icmpge")
-      case LessThan(leftOp, rightOp) =>
+      case LessThan(leftOp, rightOp, _) =>
         asm(label) <++> gen(leftOp, c) <++> gen(rightOp, c) <++> genComparison("if_icmplt")
-      case LessOrEqualThan(leftOp, rightOp) =>
+      case LessOrEqualThan(leftOp, rightOp, _) =>
         asm(label) <++> gen(leftOp, c) <++> gen(rightOp, c) <++> genComparison("if_icmple")
       case m: Mult =>
         asm(label) <++> genBinaryOp(m, "imul", c)
-      case IntLit(value) =>
+      case IntLit(value, _) =>
         asm(label) <+> "ldc " + value.toString
-      case Not(e) =>
+      case Not(e, _) =>
         asm(label) <++> gen(e, c) <+> "iconst_1" <+> "ixor"
-      case NewArray(arraySize) =>
+      case NewArray(arraySize, _) =>
         asm(label) <++> gen(arraySize, c) <+> "newarray int"
-      case NewObject(Identifier(typeName)) =>
+      case NewObject(Identifier(typeName,_), _) =>
         asm(label) <+> "new " + esc(typeName) <+> "dup" <+> "invokespecial " + esc(typeName + "/<init>()V")
-      case ArrayLength(array) =>
+      case ArrayLength(array, _) =>
         asm(label) <++> gen(array, c) <+> "arraylength"
-      case ArrayLookup(array, index) =>
+      case ArrayLookup(array, index, _) =>
         asm(label) <++> gen(array, c) <++> gen(index, c) <+> "iaload"
-      case False() =>
+      case False(_) =>
         asm(label) <+> "iconst_0"
-      case True() =>
+      case True(_) =>
         asm(label) <+> "iconst_1"
-      case This() =>
+      case This(_) =>
         asm(label) <+> "aload_0"
       case or: Or =>
         asm(label) <++> genShortCircuitOp(or, "ifne", c)
       case and: And =>
         asm(label) <++> genShortCircuitOp(and, "ifeq", c)
-      case MethodCall(obj, methodName, args) =>
-        val objType = TypeChecker.getType(obj, c).asInstanceOf[ObjectType]
+      case MethodCall(obj, methodName, args, _) =>
+        val objType = TypeChecker.getType(obj, c).asInstanceOf[ObjectTypeNode]
         val returnType = c.symTable(objType.name).methods(methodName.name).returnType
         val argTypeList = args.map(TypeChecker.getType(_, c))
         val methodDesc = methodDescriptor(objType.name, methodName.name, argTypeList, returnType)
         asm(label) <++> gen(obj, c) <++> genAll(args, c) <+> "invokevirtual " + esc(methodDesc)
-      case Equal(leftOp, rightOp) =>
+      case Equal(leftOp, rightOp, _) =>
         val compareInstruct = TypeChecker.getType(rightOp, c) match {
           case ObjectType(_) | IntArrayType() => "if_acmpeq"
           case _ => "if_icmpeq"
         }
         asm(label) <++> gen(leftOp, c) <++> gen(rightOp, c) <++> genComparison(compareInstruct)
-      case NotEqual(leftOp, rightOp) => // TODO: code duplication
+      case NotEqual(leftOp, rightOp, _) => // TODO: code duplication
         val compareInstruct = TypeChecker.getType(rightOp, c) match {
           case ObjectType(_) | IntArrayType() => "if_acmpne"
           case _ => "if_icmpne"
         }
         asm(label) <++> gen(leftOp, c) <++> gen(rightOp, c) <++> genComparison(compareInstruct)
-      case Parens(e) =>
+      case Parens(e, _) =>
         asm(label) <++> gen(e, c)
       case _ => asm(label)
     }
