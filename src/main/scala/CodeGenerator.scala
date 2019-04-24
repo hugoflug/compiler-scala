@@ -236,7 +236,7 @@ object CodeGenerator {
       case and: And =>
         asm(label) <++> genShortCircuitOp(and, "ifeq", c)
       case MethodCall(obj, methodName, args, _) =>
-        val objType = TypeChecker.getType(obj, c).asInstanceOf[ObjectTypeNode]
+        val objType = TypeChecker.getType(obj, c).asInstanceOf[ObjectType]
         val returnType = c.symTable(objType.name).methods(methodName.name).returnType
         val argTypeList = args.map(TypeChecker.getType(_, c))
         val methodDesc = methodDescriptor(objType.name, methodName.name, argTypeList, returnType)

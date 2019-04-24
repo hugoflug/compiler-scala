@@ -97,6 +97,8 @@ object TypeChecker {
       IntType()
     case _: BooleanTypeNode =>
       BooleanType()
+    case _: IntArrayTypeNode =>
+      IntArrayType()
     case ObjectTypeNode(name, _) =>
       ObjectType(name)
   }

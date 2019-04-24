@@ -3,6 +3,7 @@ import java.nio.file.{Files, Path, Paths}
 
 import sys.process._
 import org.scalatest.{AppendedClues, Matchers}
+import ErrorFormatter.format
 
 import scala.io.Source
 
@@ -33,10 +34,13 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
   private def listFiles(dir: String) =
     new File(dir).listFiles
 
+  private def clue(result: Either[CompilationError, _], program: String, sourceFile: String) =
+    ", " + result.left.map(format(_, program, "test")).swap.toOption.getOrElse("")
+
   private def executeTest(program: String, mainClass: String, testFn: (Int, String, String) => Unit): Unit = {
     val outDir = Files.createTempDirectory("compiler-scala").toString
     val result = Compiler.compileToFiles(program, mainClass + ".java", outDir)
-    result should matchPattern { case Right(_) => }
+    result should matchPattern { case Right(_) => } withClue clue(result, program, "test")
 
     val (_, _, stdErr) = run(s"java -jar jasmin.jar $outDir/$mainClass.jasmin -d $outDir", ".")
     stdErr shouldBe empty
@@ -45,11 +49,12 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
     testFn(errCode, stdOut, stdErr2)
   }
 
-  private def forAllFiles(itSubDir: String, testFn: (String, File) => Unit): Unit = {
+  private def forAllFiles(itSubDir: String, testFn: (String, File) => Unit,
+                          onlyFile: Option[String] = None): Unit = {
     val subDirs = listFiles("./src/test/resources/integration-test/" + itSubDir)
 
     subDirs.filter(_.isDirectory).foreach(subDir => subDir.listFiles((_, f) => f.endsWith(".java"))
-      .foreach(sourceFile => {
+      .filter(f => onlyFile.forall(f.getName == _ + ".java")).foreach(sourceFile => {
         val program = readFile(sourceFile.getAbsolutePath)
         if (!shouldSkip(program, extensions)) {
           val testName = itSubDir + "/" + subDir.getName + "/" + sourceFile.getName.stripSuffix(".java")
@@ -71,8 +76,10 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
     })
   }
 
-  forAllFiles("compile", (program, file) =>
-    Compiler.compile(program, file.getName) should matchPattern { case Right(_) => })
+  forAllFiles("compile", (program, file) => {
+    val result = Compiler.compile(program, file.getName)
+    result should matchPattern { case Right(_) => } withClue clue(result, program, file.getName)
+  })
 
   forAllFiles("noncompile", (program, file) =>
     Compiler.compile(program, file.getName) should matchPattern { case Left(_) => })
