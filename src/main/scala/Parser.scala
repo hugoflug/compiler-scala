@@ -38,11 +38,11 @@ object Parser {
   def this_[_: P] = P(Index ~ "this")
     .map(index => This(index))
 
-  def keyword[_: P] = P("class" | "public" | "static" | "void" | "String" | "return" | "int" | "boolean" | "if" |
-    "else" | "while" | "length" | "true" | "false" | "this" | "new")
-
+  def keyword[_: P] = P(("class" | "public" | "static" | "void" | "String" | "return" | "int" | "boolean" | "if" |
+    "else" | "while" | "length" | "true" | "false" | "this" | "new") ~~ !idChar)
   def startId[_: P] = P(CharIn("a-z") | CharIn("A-Z") | "_")
-  def id[_: P] = P(Index ~ (!keyword ~ startId ~~ (startId | CharIn("0-9")).repX).!)
+  def idChar[_: P] = startId | CharIn("0-9")
+  def id[_: P] = P(Index ~ (!keyword ~ startId ~~ idChar.repX).!)
     .map({ case(index, s) => Identifier(s, index) })
 
   def newArray[_: P] = P(Index ~ "new" ~ "int" ~ "[" ~ expr ~ "]")
