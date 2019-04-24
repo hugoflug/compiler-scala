@@ -55,34 +55,40 @@ object Parser {
 
   def expr[_: P] = or
 
-  def or[_: P] = P(and ~ ("||" ~/ and).rep)
-    .map({ case (head, tail) => tail.foldLeft(head)((e1, e2) => Or(e1, e2, 0 /*TODO*/)) })
+  def or[_: P] = P(and ~ (Index ~ "||" ~/ and).rep)
+    .map({ case (head, tail) => tail.foldLeft(head)((e1, ixAndExpr) => ixAndExpr match {
+      case (index, e2) => Or(e1, e2, index)
+    }) })
 
-  def and[_: P] = P(equality ~ ("&&" ~/ equality).rep)
-    .map({ case (head, tail) => tail.foldLeft(head)((e1, e2) => And(e1, e2, 0 /*TODO*/)) })
+  def and[_: P] = P(equality ~ (Index ~ "&&" ~/ equality).rep)
+    .map({ case (head, tail) => tail.foldLeft(head)((e1, ixAndExpr) => ixAndExpr match {
+      case (index, e2) => And(e1, e2, index)
+    }) })
 
-  def equality[_: P] = P(compare ~ (("==" | "!=").! ~/ compare).rep)
+  def equality[_: P] = P(compare ~ (Index ~ ("==" | "!=").! ~/ compare).rep)
     .map( { case (head, tail) => tail.foldLeft(head)({
-      case (leftOp, ("==", rightOp)) => Equal(leftOp, rightOp, 0 /*TODO*/)
-      case (leftOp, ("!=", rightOp)) => NotEqual(leftOp, rightOp, 0 /*TODO*/)
+      case (leftOp, (index, "==", rightOp)) => Equal(leftOp, rightOp, index)
+      case (leftOp, (index, "!=", rightOp)) => NotEqual(leftOp, rightOp, index)
     })})
 
-  def compare[_: P] = P(plusMinus ~ ((">=" | "<=" | ">" | "<").! ~ plusMinus).rep)
+  def compare[_: P] = P(plusMinus ~ (Index ~ (">=" | "<=" | ">" | "<").! ~ plusMinus).rep)
     .map( { case (head, tail) => tail.foldLeft(head)({
-      case (leftOp, (">", rightOp)) => GreaterThan(leftOp, rightOp, 0 /*TODO*/)
-      case (leftOp, ("<", rightOp)) => LessThan(leftOp, rightOp, 0 /*TODO*/)
-      case (leftOp, (">=", rightOp)) => GreaterOrEqualThan(leftOp, rightOp, 0 /*TODO*/)
-      case (leftOp, ("<=", rightOp)) => LessOrEqualThan(leftOp, rightOp, 0 /*TODO*/)
+      case (leftOp, (index, ">", rightOp)) => GreaterThan(leftOp, rightOp, index)
+      case (leftOp, (index, "<", rightOp)) => LessThan(leftOp, rightOp, index)
+      case (leftOp, (index, ">=", rightOp)) => GreaterOrEqualThan(leftOp, rightOp, index)
+      case (leftOp, (index, "<=", rightOp)) => LessOrEqualThan(leftOp, rightOp, index)
     })})
 
-  def plusMinus[_: P] = P(mult ~ (CharIn("+\\-").! ~/ mult).rep)
+  def plusMinus[_: P] = P(mult ~ (Index ~ CharIn("+\\-").! ~/ mult).rep)
     .map( { case (head, tail) => tail.foldLeft(head)({
-      case (leftOp, ("+", rightOp)) => Plus(leftOp, rightOp, 0 /*TODO*/)
-      case (leftOp, ("-", rightOp)) => Minus(leftOp, rightOp, 0 /*TODO*/)
+      case (leftOp, (index, "+", rightOp)) => Plus(leftOp, rightOp, index)
+      case (leftOp, (index, "-", rightOp)) => Minus(leftOp, rightOp, index)
     })})
 
-  def mult[_: P] = P(exprInfo ~ ("*" ~/ exprInfo).rep)
-    .map({ case (head, tail) => tail.foldLeft(head)((e1, e2) => Mult(e1, e2, 0 /*TODO*/)) })
+  def mult[_: P] = P(exprInfo ~ (Index ~ "*" ~/ exprInfo).rep)
+    .map({ case (head, tail) => tail.foldLeft(head)((e1, ixAndExpr) => ixAndExpr match {
+      case (index, e2) => Mult(e1, e2, index)
+    }) })
 
   def not[_: P]: P[Not] = P(Index ~ "!" ~/ expr)
     .map({ case (index, e) => Not(e, index) })
@@ -127,11 +133,12 @@ object Parser {
   def varDecl[_: P] = P(Index ~ type_ ~ id ~ ";")
     .map({ case (index, type_, id) => VarDecl(type_, id, index) })
 
-  def flattenFormalList(parsedInfo: (TypeNode, Identifier, Seq[(TypeNode, Identifier)])): Seq[Formal] = parsedInfo match {
-    case (hType, hName, tail) => Formal(hType, hName, 0 /*TODO*/) +: tail.map({ case(type_, name) => Formal(type_, name, 0 /*TODO*/)})
+  def flattenFormalList(parsedInfo: (Int, TypeNode, Identifier, Seq[(Int, TypeNode, Identifier)])): Seq[Formal] = parsedInfo match {
+    case (index, hType, hName, tail) =>
+      Formal(hType, hName, index) +: tail.map({ case(ix, type_, name) => Formal(type_, name, ix)})
   }
 
-  def formalList[_: P] = P(type_ ~ id ~ ("," ~ type_ ~ id).rep).?
+  def formalList[_: P] = P(Index ~ type_ ~ id ~ ("," ~ Index ~ type_ ~ id).rep).?
     .map({
       case Some(parsedInfo) => flattenFormalList(parsedInfo)
       case None => Seq()
