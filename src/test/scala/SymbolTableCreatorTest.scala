@@ -19,7 +19,7 @@ class SymbolTableCreatorTest extends org.scalatest.FunSuite with Matchers {
          }
        """
 
-    createSymTable(program) should matchPattern { case Left(RedefinitionError("a")) => }
+    createSymTable(program) should matchPattern { case Left(RedefinitionError("a", _)) => }
   }
 
   test("CreateSymbolTable") {
