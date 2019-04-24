@@ -63,11 +63,11 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
   private def executeAllFiles(itSubDir: String, testFn: (Int, String, String, String) => Unit): Unit = {
     forAllFiles(itSubDir, (program, file) => {
       val base = file.getPath.stripSuffix(".java")
-      val mainClass = readFile(base + ".main")
+      val mainClass = readFile(base + ".main").stripSuffix("\n")
 
       val outPath = base + ".out"
       val out = if (Files.exists(Paths.get(outPath))) readFile(outPath) else ""
-      executeTest(program, mainClass, (errCode, stdErr, stdOut) => testFn(errCode, stdErr, stdOut, out))
+      executeTest(program, mainClass, (errCode, stdOut, stdErr) => testFn(errCode, stdOut, stdErr, out))
     })
   }
 
@@ -78,13 +78,13 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
     Compiler.compile(program, file.getName) should matchPattern { case Left(_) => })
 
   executeAllFiles("execute",
-    (errCode, stdErr, stdOut, expectedOut) => {
+    (errCode, stdOut, stdErr, expectedOut) => {
       errCode shouldBe 0 withClue stdErr
       stdOut shouldBe expectedOut
     })
 
   executeAllFiles("nonexecute",
-    (errCode, _, stdOut, _) => {
+    (errCode, stdOut, _, _) => {
       errCode shouldBe 1 withClue stdOut
     })
 }
