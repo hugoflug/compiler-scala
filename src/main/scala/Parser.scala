@@ -3,6 +3,8 @@ object Parser {
 
   case class ParseError(msg: String, override val index: Int) extends CompilationError(index)
 
+  def ws[_: P] = P(CharIn(" \t\n\r"))
+
   def stmt[_: P]: P[Stmt] = P(assign | arrayAssign | block | syso | while_ | ifStmt)
 
   def ifStmt[_: P] = P(Index ~ "if" ~/ "(" ~ expr ~ ")" ~ stmt ~ ("else" ~ stmt).?)
@@ -45,10 +47,10 @@ object Parser {
   def id[_: P] = P(Index ~ (!keyword ~ startId ~~ idChar.repX).!)
     .map({ case(index, s) => Identifier(s, index) })
 
-  def newArray[_: P] = P(Index ~ "new" ~ "int" ~ "[" ~ expr ~ "]")
+  def newArray[_: P] = P(Index ~ "new" ~ ws ~ "int" ~ "[" ~ expr ~ "]")
     .map({ case(index, e) => NewArray(e, index) })
 
-  def newObject[_: P] = P(Index ~ "new" ~ id ~ "(" ~ ")")
+  def newObject[_: P] = P(Index ~ "new" ~ ws ~ id ~ "(" ~ ")")
     .map({ case(index, e) => NewObject(e, index) })
 
   def exprVal[_: P] = P(newArray | newObject | intLit | true_ | false_ | this_ | id)
@@ -130,7 +132,7 @@ object Parser {
   def objectType[_: P] = P(Index ~ id)
     .map({ case (index, i) => ObjectTypeNode(i.name, index) })
 
-  def varDecl[_: P] = P(Index ~ type_ ~ id ~ ";")
+  def varDecl[_: P] = P(Index ~ type_ ~ ws ~ id ~ ";")
     .map({ case (index, type_, id) => VarDecl(type_, id, index) })
 
   def flattenFormalList(parsedInfo: (Int, TypeNode, Identifier, Seq[(Int, TypeNode, Identifier)])): Seq[Formal] = parsedInfo match {
@@ -138,13 +140,13 @@ object Parser {
       Formal(hType, hName, index) +: tail.map({ case(ix, type_, name) => Formal(type_, name, ix) })
   }
 
-  def formalList[_: P] = P(Index ~ type_ ~ id ~ ("," ~ Index ~ type_ ~ id).rep).?
+  def formalList[_: P] = P(Index ~ type_ ~ ws ~ id ~ ("," ~ Index ~ type_ ~ ws ~ id).rep).?
     .map({
       case Some(parsedInfo) => flattenFormalList(parsedInfo)
       case None => Seq()
     })
 
-  def methodDecl[_: P] = P(Index ~ "public" ~ type_ ~ id ~ "(" ~ formalList ~ ")" ~
+  def methodDecl[_: P] = P(Index ~ "public" ~ ws ~ type_ ~ ws ~ id ~ "(" ~ formalList ~ ")" ~
     "{" ~/
       varDecl.rep ~
       stmt.rep ~
@@ -155,11 +157,11 @@ object Parser {
         MethodDecl(type_, name, formals, varDecls, stmts, returnVal, index)
     })
 
-  def classDecl[_: P] = P(Index ~ "class" ~ id ~ "{" ~ varDecl.rep ~ methodDecl.rep ~ "}")
+  def classDecl[_: P] = P(Index ~ "class" ~ ws ~ id ~ "{" ~ varDecl.rep ~ methodDecl.rep ~ "}")
     .map({ case(index, name, varDecls, methodDecls) => ClassDecl(name, varDecls, methodDecls, index) })
 
-  def mainClass[_: P] = P(Index ~ "class" ~ id ~ "{" ~
-      "public" ~ "static" ~ "void" ~ "main" ~ "(" ~ "String" ~ "[" ~ "]" ~ id ~ ")" ~ "{" ~
+  def mainClass[_: P] = P(Index ~ "class" ~ ws ~ id ~ "{" ~
+      "public" ~ ws ~ "static" ~ ws ~ "void" ~ ws ~ "main" ~ "(" ~ "String" ~ "[" ~ "]" ~ id ~ ")" ~ "{" ~
         varDecl.rep ~
         stmt.rep ~
       "}" ~
