@@ -130,7 +130,7 @@ object TypeChecker {
     for {
       classTable <- symTable.get(className).toRight(UndefinedNameError(className, index))
       methodTable <- classTable.methods.get(methodName).toRight(UndefinedNameError(methodName, index))
-      expectedParams = methodTable.params.values.toSeq
+      expectedParams = methodTable.params.values.toSeq.sortBy(_.varNo)
       _ <- assertArgAmountEq(expectedParams.length, params.length, index)
       _ <- assertTypeListEq(expectedParams.map(_.type_), params, index)
     } yield methodTable.returnType
