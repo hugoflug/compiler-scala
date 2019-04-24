@@ -97,12 +97,12 @@ object CodeGenerator {
       ".class public " + esc(classDecl.name.name) <+>
       ".super java/lang/Object" <+>
       classDecl.varDecls.map(
-        v => ".field public " + esc(v.name.name) + " " + esc(typeDescriptor(typeOfNode(v.typeName)))).mkString <+>
+        v => ".field public " + esc(v.name.name) + " " + esc(typeDescriptor(typeOfNode(v.typeName)))).mkString("\n") <+>
       ".method public <init>()V" <+>
       ".limit stack 1" <+>
       ".limit locals 1" <+>
       "aload_0" <+>
-      "invokespecial java/lang/Object/<init>( <+>V" <+>
+      "invokespecial java/lang/Object/<init>()V" <+>
       "return" <+>
       ".end method" <++>
       genAll(classDecl.methodDecls, context)
