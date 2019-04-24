@@ -135,7 +135,7 @@ object Parser {
 
   def flattenFormalList(parsedInfo: (Int, TypeNode, Identifier, Seq[(Int, TypeNode, Identifier)])): Seq[Formal] = parsedInfo match {
     case (index, hType, hName, tail) =>
-      Formal(hType, hName, index) +: tail.map({ case(ix, type_, name) => Formal(type_, name, ix)})
+      Formal(hType, hName, index) +: tail.map({ case(ix, type_, name) => Formal(type_, name, ix) })
   }
 
   def formalList[_: P] = P(Index ~ type_ ~ id ~ ("," ~ Index ~ type_ ~ id).rep).?
@@ -173,8 +173,8 @@ object Parser {
     val result = fastparse.parse(s, program(_), verboseFailures = debug)
     result match {
       case f: Parsed.Failure =>
-        if (debug) println(f.longMsg)
-        Left(ParseError(f.msg, f.index))
+        val extraInfo = if (debug) ", " + f.longMsg else ""
+        Left(ParseError(f.msg + extraInfo, f.index))
       case Parsed.Success(value, _) =>
         Right(value)
     }
