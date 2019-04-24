@@ -38,8 +38,11 @@ object Parser {
   def this_[_: P] = P("this")
     .map(_ => This())
 
+  def keyword[_: P] = P("class" | "public" | "static" | "void" | "String" | "return" | "int" | "boolean" | "if" |
+    "else" | "while" | "length" | "true" | "false" | "this" | "new")
+
   def startId[_: P] = P(CharIn("a-z") | CharIn("A-Z") | "_")
-  def id[_: P] = P(startId ~~ (startId | CharIn("0-9")).repX).!
+  def id[_: P] = P(!keyword ~ startId ~~ (startId | CharIn("0-9")).repX).!
     .map(s => Identifier(s))
 
   def newArray[_: P] = P("new" ~ "int" ~ "[" ~ expr ~ "]")
@@ -159,7 +162,7 @@ object Parser {
   def program[_: P] = P(CharIn(" \n").rep ~ mainClass ~ classDecl.rep ~ End)
     .map({ case(mainClass, classDecls) => Program(mainClass, classDecls) })
 
-  def parse(s: String, debug: Boolean = false): Either[ParseError, Program] = {
+  def parse(s: String, debug: Boolean = true): Either[ParseError, Program] = {
     val result = fastparse.parse(s, program(_), verboseFailures = debug)
     result match {
       case f: Parsed.Failure =>
