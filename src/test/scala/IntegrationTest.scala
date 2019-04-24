@@ -42,7 +42,10 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
     val result = Compiler.compileToFiles(program, mainClass + ".java", outDir)
     result should matchPattern { case Right(_) => } withClue clue(result, program, "test")
 
-    val (_, _, stdErr) = run(s"java -jar jasmin.jar $outDir/$mainClass.jasmin -d $outDir", ".")
+    val classes = result.right.get.map(_.className)
+    val jasminFiles = classes.map(c => s"$outDir/$c.jasmin").mkString(" ")
+
+    val (_, _, stdErr) = run(s"java -jar jasmin.jar $jasminFiles -d $outDir", ".")
     stdErr shouldBe empty
 
     val (errCode, stdOut, stdErr2) = run(s"java $mainClass", outDir)

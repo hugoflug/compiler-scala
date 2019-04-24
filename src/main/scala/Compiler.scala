@@ -22,12 +22,12 @@ object Compiler {
   private def writeToFile(filename: String, s: String) =
     Files.write(Paths.get(filename), s.getBytes(StandardCharsets.UTF_8))
 
-  def compileToFiles(program: String, sourceFile: String, outDir: String): Either[CompilationError, Unit] =
+  def compileToFiles(program: String, sourceFile: String, outDir: String): Either[CompilationError, Seq[JasminAssembly]] =
     compile(program, sourceFile) match {
       case Left(error) => Left(error)
       case Right(assemblies) =>
-        assemblies.foreach(a => writeToFile(outDir + "/" + a.filename, a.program))
-        Right()
+        assemblies.foreach(a => writeToFile(outDir + "/" + a.className + ".jasmin", a.assembly))
+        Right(assemblies)
     }
 
   def compile(program: String, sourceFile: String): Either[CompilationError, Seq[JasminAssembly]] =

@@ -2,7 +2,7 @@ import SymbolTableCreator.{SymbolTable, Var}
 import TypeChecker.{BooleanType, Context, IntArrayType, IntType, ObjectType, Type, typeOfNode}
 
 object CodeGenerator {
-  case class JasminAssembly(filename: String, program: String)
+  case class JasminAssembly(className: String, assembly: String)
 
   def generate(program: Program, symTable: SymbolTable, sourceFile: String): Seq[JasminAssembly] =
     gen(program.mainClass, symTable, sourceFile) +: program.classDecls.map(gen(_, symTable, sourceFile))
@@ -87,7 +87,7 @@ object CodeGenerator {
       "return" <+>
       ".end method"
 
-    JasminAssembly(classDecl.name.name + ".jasmin", codeGenResult.program)
+    JasminAssembly(classDecl.name.name, codeGenResult.program)
   }
 
   private def gen(classDecl: ClassDecl, symTable: SymbolTable, sourceFile: String): JasminAssembly = {
@@ -107,7 +107,7 @@ object CodeGenerator {
       ".end method" <++>
       genAll(classDecl.methodDecls, context)
 
-    JasminAssembly(classDecl.name.name + ".jasmin", codeGenResult.program)
+    JasminAssembly(classDecl.name.name, codeGenResult.program)
   }
 
   private def gen(node: SyntaxTreeNode, c: Context)(label: Int): CodegenResult =
