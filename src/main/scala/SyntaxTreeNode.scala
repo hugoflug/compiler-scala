@@ -1,7 +1,7 @@
 abstract class SyntaxTreeNode(val index: Int)
 
 abstract class Expr(override val index: Int) extends SyntaxTreeNode(index)
-case class IntLit(value: Int, override val index: Int) extends Expr(index)
+case class IntLit(value: Long, override val index: Int) extends Expr(index)
 case class True(override val index: Int) extends Expr(index)
 case class False(override val index: Int) extends Expr(index)
 case class This(override val index: Int) extends Expr(index)

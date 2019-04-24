@@ -27,7 +27,7 @@ object Parser {
     .map({ case(index, cond, stmt) => While(cond, stmt, index) })
 
   def intLit[_: P] = P(Index ~ ("0" | (CharIn("1-9") ~/ CharIn("0-9").rep)).!)
-    .map({ case(index, s) => IntLit(s.toInt, index) })
+    .map({ case(index, s) => IntLit(s.toLong, index) })
 
   def true_[_: P] = P(Index ~ "true")
     .map(index => True(index))

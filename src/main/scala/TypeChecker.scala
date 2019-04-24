@@ -7,6 +7,7 @@ object TypeChecker {
   case class TypeNotInListError(actualType: Type, expectedTypes: Seq[Type], override val index: Int) extends TypeError(index)
   case class WrongArgumentAmountError(actual: Int, expected: Int, override val index: Int) extends TypeError(index)
   case class UndefinedNameError(name: String, override val index: Int) extends TypeError(index)
+  case class IntSizeError(size: Long, override val index: Int) extends TypeError(index)
 
   case class Context(symTable: SymbolTable, currentClass: Option[ClassTable], currentMethod: Option[MethodTable])
 
@@ -77,7 +78,8 @@ object TypeChecker {
         Right(BooleanType())
       case _: True =>
         Right(BooleanType())
-      case _: IntLit =>
+      case IntLit(value, index) =>
+        if (value > Int.MaxValue) Left(IntSizeError(value, index))
         Right(IntType())
       case call: MethodCall =>
         for {
