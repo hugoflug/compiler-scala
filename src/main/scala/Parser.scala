@@ -26,7 +26,7 @@ object Parser {
   def while_[_: P] = P(Index ~ "while" ~/ "(" ~ expr ~ ")" ~ stmt)
     .map({ case(index, cond, stmt) => While(cond, stmt, index) })
 
-  def intLit[_: P] = P(Index ~ ("0" | (CharIn("0-9") ~/ CharIn("1-9").rep)).!)
+  def intLit[_: P] = P(Index ~ ("0" | (CharIn("1-9") ~/ CharIn("0-9").rep)).!)
     .map({ case(index, s) => IntLit(s.toInt, index) })
 
   def true_[_: P] = P(Index ~ "true")
