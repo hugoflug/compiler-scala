@@ -80,7 +80,7 @@ object TypeChecker {
         Right(BooleanType())
       case IntLit(value, index) =>
         if (value > Int.MaxValue) Left(IntSizeError(value, index))
-        Right(IntType())
+        else Right(IntType())
       case call: MethodCall =>
         for {
           objType <- typeCheck(call.obj, c)
