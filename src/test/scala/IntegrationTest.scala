@@ -39,27 +39,27 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
   private def clue(result: Either[CompilationError, _], program: String, sourceFile: String) =
     ", " + result.left.map(format(_, program, "test")).swap.toOption.getOrElse("")
 
-  private def executeTest(program: String, mainClass: String, testFn: (Int, String, String) => Unit): Unit = {
-    val outDir = "./out" //Files.createTempDirectory("compiler-scala").toString
-    val result = Compiler.compileToFiles(program, mainClass + ".java", outDir)
-    result should matchPattern { case Right(_) => } withClue clue(result, program, "test")
+  private def executeTest(program: String, mainClass: String, sourceFile: String,
+                          testFn: (Int, String, String) => Unit): Unit = {
+    val outDir = Files.createTempDirectory("compiler-scala").toString
+    val result = Compiler.compileToFiles(program, sourceFile, outDir)
+    result should matchPattern { case Right(_) => } withClue clue(result, program, sourceFile)
 
     val classes = result.right.get.map(_.className)
     val jasminFiles = classes.map(c => s"$outDir/$c.jasmin").mkString(" ")
 
-    val (_, _, stdErr) = run(s"java -jar jasmin.jar $jasminFiles -d $outDir", ".")
+    val (_, _, stdErr) = run(s"java -jar jasmin.jar $jasminFiles -d $outDir", "./tools")
     stdErr shouldBe empty
 
     val (errCode, stdOut, stdErr2) = run(s"java $mainClass", outDir)
     testFn(errCode, stdOut, stdErr2)
   }
 
-  private def forAllFiles(itSubDir: String, testFn: (String, File) => Unit,
-                          onlyFile: Option[String] = None): Unit = {
+  private def forAllFiles(itSubDir: String, testFn: (String, File) => Unit): Unit = {
     val subDirs = listFiles("./src/test/resources/integration-test/" + itSubDir)
 
     subDirs.filter(_.isDirectory).foreach(subDir => subDir.listFiles((_, f) => f.endsWith(".java"))
-      .filter(f => onlyFile.forall(f.getName == _ + ".java")).foreach(sourceFile => {
+      .foreach(sourceFile => {
         val program = readFile(sourceFile.getAbsolutePath)
         if (!shouldSkip(program, extensions)) {
           val testName = itSubDir + "/" + subDir.getName + "/" + sourceFile.getName.stripSuffix(".java")
@@ -77,7 +77,7 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
 
       val outPath = base + ".out"
       val out = if (Files.exists(Paths.get(outPath))) readFile(outPath).stripSuffix("\n") else ""
-      executeTest(program, mainClass, (errCode, stdOut, stdErr) => testFn(errCode, stdOut, stdErr, out))
+      executeTest(program, mainClass, file.getName, (errCode, stdOut, stdErr) => testFn(errCode, stdOut, stdErr, out))
     })
   }
 
@@ -90,7 +90,7 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
     Compiler.compile(program, file.getName) should matchPattern { case Left(_) => })
 
   executeAllFiles("execute",
-    (errCode, stdOut, stdErr, expectedOut) => {
+    (errCode, _, stdErr, _) => {
       errCode shouldBe 0 withClue stdErr
     })
 

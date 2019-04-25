@@ -28,18 +28,7 @@ object ErrorFormatter {
     }
 
   private def formatSourcePos(index: Int, program: String) = {
-    val srcPos = sourcePos(program, index)
+    val srcPos = SourcePositionFinder.find(program, index)
     s"at ${srcPos.row}:${srcPos.column}"
   }
-
-  case class SourcePosition(row: Int, column: Int)
-
-  def sourcePos(program: String, index: Int): SourcePosition = {
-    val lineLengths = program.split("\n").map(_.length).toList
-    sourcePos(lineLengths, index + 1, 1)
-  }
-
-  private def sourcePos(lineLengths: List[Int], index: Int, lines: Int): SourcePosition =
-    if (index <= lineLengths.head) SourcePosition(lines, index)
-    else sourcePos(lineLengths.tail, index - lineLengths.head - 1, lines + 1)
 }
