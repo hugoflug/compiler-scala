@@ -67,6 +67,9 @@ object CodeGenerator {
     methodName + "(" + formals.map(t => typeOfNode(t.typeName))
       .map(typeDescriptor).mkString + ")" + typeDescriptor(returnType)
 
+  private def genAllExpr(nodes: Seq[Expr], c: Context)(label: Int): CodegenResult =
+    nodes.map(n => gen(n, c)(_)).foldLeft(asm(label))(_ <++> _)
+
   private def genAll(nodes: Seq[SyntaxTreeNode], c: Context)(label: Int): CodegenResult =
     nodes.map(n => gen(n, c)(_)).foldLeft(asm(label))(_ <++> _)
 
@@ -259,7 +262,7 @@ object CodeGenerator {
         val returnType = c.symTable(objType.name).methods(methodName.name).returnType
         val argTypeList = args.map(TypeChecker.getType(_, c))
         val methodDesc = methodDescriptor(objType.name, methodName.name, argTypeList, returnType)
-        asm(label) <++> gen(obj, c) <++> genAll(args, c) <+> "invokevirtual " + esc(methodDesc)
+        asm(label) <++> gen(obj, c) <++> genAllExpr(args, c) <+> "invokevirtual " + esc(methodDesc)
       case Equal(leftOp, rightOp, _) =>
         val compareInstruct = TypeChecker.getType(rightOp, c) match {
           case ObjectType(_) | IntArrayType() => "if_acmpeq"
