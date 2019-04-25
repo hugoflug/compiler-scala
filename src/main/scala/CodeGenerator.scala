@@ -76,7 +76,7 @@ object CodeGenerator {
     val classTable = symTable(classDecl.name.name)
     val methodTable = classTable.methods("main")
     val context = Context(symTable, Some(classTable), Some(methodTable))
-    val maxStack = 500 // TODO: calculate
+    val maxStack = StackDepthCalculator.maxStackDepth(classDecl.stmts) + 1
     val codeGenResult = asm(0) >>
       ".source " + esc(sourceFile) >>
       ".class public " + esc(classDecl.name.name) >>
@@ -143,11 +143,11 @@ object CodeGenerator {
       case Block(stmtList, _) =>
         asm(label) >>> genAll(stmtList, c)
 
-      case MethodDecl(type_, Identifier(name, _), argList, varDeclList, stmts, returnVal, _) =>
+      case decl @ MethodDecl(type_, Identifier(name, _), argList, varDeclList, stmts, returnVal, _) =>
         val methodTable = c.symTable(c.currentClass.get.name).methods(name)
         val newContext = c.copy(currentMethod = Some(methodTable))
         val methodDescr = methodDescriptor(name, argList, methodTable.returnType)
-        val maxStack = 500 //TODO: calculate
+        val maxStack = StackDepthCalculator.maxStackDepth(decl) + 1
         asm(label) >>
           ".method public " + esc(methodDescr) >>
           ".limit stack " + maxStack >>
