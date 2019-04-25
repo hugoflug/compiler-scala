@@ -87,15 +87,23 @@ object Parser {
       case (leftOp, (index, "-", rightOp)) => Minus(leftOp, rightOp, index)
     })})
 
-  def mult[_: P] = P(exprInfo ~ (Index ~ "*" ~/ exprInfo).rep)
+  def mult[_: P] = P(notExpr ~ (Index ~ "*" ~/ notExpr).rep)
     .map({ case (head, tail) => tail.foldLeft(head)((e1, ixAndExpr) => ixAndExpr match {
       case (index, e2) => Mult(e1, e2, index)
     }) })
 
-  def not[_: P]: P[Not] = P(Index ~ "!" ~/ expr)
+  def notExpr[_: P] = P(not | exprInfo)
+
+  def not[_: P]: P[Expr] = P(Index ~ "!" ~/ exprInfo)
     .map({ case (index, e) => Not(e, index) })
 
-  def exprInfo[_: P]: P[Expr] = P((parens | not | exprVal).flatMap(e => arrayLength(e) | methodCall(e) | arrayLookup(e) | empty(e)))
+  def exprInfo[_: P]: P[Expr] = P((parens | exprVal).flatMap(exprInfoExt))
+
+  def exprInfoExt[_: P](e: Expr): P[Expr] = P(noExprInfoExt(e) | (arrayLength(e) | methodCall(e) | arrayLookup(e))
+    .flatMap(exprInfoExt))
+
+  def noExprInfoExt[_: P](e: Expr) = P(!CharIn(".["))
+    .map(_ => e)
 
   def empty[_: P](expr: Expr) = P("")
     .map(_ => expr)
