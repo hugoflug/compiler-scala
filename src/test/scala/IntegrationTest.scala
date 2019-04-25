@@ -1,5 +1,7 @@
 import java.io.File
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Paths}
+
+import Compiler.CompilationError
 
 import sys.process._
 import org.scalatest.{AppendedClues, Matchers}

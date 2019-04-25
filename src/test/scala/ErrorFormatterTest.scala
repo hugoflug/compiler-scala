@@ -9,6 +9,6 @@ class ErrorFormatterTest extends org.scalatest.FunSuite with Matchers {
         |arbar
       """.stripMargin
 
-    ErrorFormatter.sourcePos(program, 9) shouldBe SourcePosition(3, 3)
+    ErrorFormatter.sourcePos(program, 9) shouldBe SourcePosition(3, 4)
   }
 }

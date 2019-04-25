@@ -132,6 +132,6 @@ class CompilerTest extends org.scalatest.FunSuite with Matchers {
       }
     }"""
 
-    Compiler.compile(program, "While.mj") should matchPattern { case Left(_) => }
+    Compiler.compile(program, "While.mj") should matchPattern { case Right(_) => }
   }
 }

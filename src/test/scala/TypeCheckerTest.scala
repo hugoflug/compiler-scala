@@ -1,3 +1,4 @@
+import TypeChecker.UndefinedNameError
 import org.scalatest.Matchers
 
 class TypeCheckerTest extends org.scalatest.FunSuite with Matchers {
@@ -103,6 +104,6 @@ class TypeCheckerTest extends org.scalatest.FunSuite with Matchers {
       }
     }"""
 
-    typeCheck(program) should matchPattern { case Left(_) => }
+    typeCheck(program) should matchPattern { case Left(UndefinedNameError("Double", _)) => }
   }
 }
