@@ -38,7 +38,7 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
     ", " + result.left.map(format(_, program, "test")).swap.toOption.getOrElse("")
 
   private def executeTest(program: String, mainClass: String, testFn: (Int, String, String) => Unit): Unit = {
-    val outDir = Files.createTempDirectory("compiler-scala").toString
+    val outDir = "./out" //Files.createTempDirectory("compiler-scala").toString
     val result = Compiler.compileToFiles(program, mainClass + ".java", outDir)
     result should matchPattern { case Right(_) => } withClue clue(result, program, "test")
 

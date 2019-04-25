@@ -3,7 +3,7 @@ object Parser {
 
   case class ParseError(msg: String, override val index: Int) extends CompilationError(index)
 
-  def ws[_: P] = P(CharIn(" \t\n\r"))
+  def ws[_: P] = P(&(CharIn(" \t\n\r") | "/*"))
 
   def stmt[_: P]: P[Stmt] = P(assign | arrayAssign | block | syso | while_ | ifStmt)
 
@@ -140,8 +140,8 @@ object Parser {
   def objectType[_: P] = P(Index ~ id)
     .map({ case (index, i) => ObjectTypeNode(i.name, index) })
 
-  def varDecl[_: P] = P(Index ~ type_ ~~ ws ~ id ~ ";")
-    .map({ case (index, type_, id) => VarDecl(type_, id, index) })
+  def varDecl[_: P] = P(Index ~ ((type_ ~~ ws ~ id) | (intArrayType ~ id)) ~ ";")
+    .map({ case (index, (type_, id)) => VarDecl(type_, id, index) })
 
   def flattenFormalList(parsedInfo: (Int, TypeNode, Identifier, Seq[(Int, TypeNode, Identifier)])): Seq[Formal] = parsedInfo match {
     case (index, hType, hName, tail) =>
