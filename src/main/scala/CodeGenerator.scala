@@ -47,7 +47,7 @@ object CodeGenerator {
       compareInstr + " l" + label <+>
       "pop" <++>
       gen(binOp.rightOp, c) <+>
-      "end: l" + label
+      "l" + label + ":"
 
   private def oneOf[T](options: Option[T]*): Option[T] =
     if (options.isEmpty) None
