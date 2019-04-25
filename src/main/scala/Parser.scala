@@ -53,7 +53,7 @@ object Parser {
   def newObject[_: P] = P(Index ~ "new" ~~ ws ~ id ~ "(" ~ ")")
     .map({ case(index, e) => NewObject(e, index) })
 
-  def exprVal[_: P] = P(newArray | newObject | intLit | true_ | false_ | this_ | id)
+  def exprVal[_: P] = P(id | newArray | newObject | intLit | true_ | false_ | this_)
 
   def expr[_: P] = or
 
@@ -94,7 +94,7 @@ object Parser {
 
   def notExpr[_: P] = P(not | exprInfo)
 
-  def not[_: P]: P[Expr] = P(Index ~ "!" ~/ exprInfo)
+  def not[_: P]: P[Expr] = P(Index ~ "!" ~/ (not | exprInfo))
     .map({ case (index, e) => Not(e, index) })
 
   def exprInfo[_: P]: P[Expr] = P((parens | exprVal).flatMap(exprInfoExt))
@@ -140,21 +140,23 @@ object Parser {
   def objectType[_: P] = P(Index ~ id)
     .map({ case (index, i) => ObjectTypeNode(i.name, index) })
 
-  def varDecl[_: P] = P(Index ~ ((type_ ~~ ws ~ id) | (intArrayType ~ id)) ~ ";")
+  def genVarDecl[_: P] = P((type_ ~~ ws ~ id) | (intArrayType ~ id))
+
+  def varDecl[_: P] = P(Index ~ genVarDecl ~ ";")
     .map({ case (index, (type_, id)) => VarDecl(type_, id, index) })
 
-  def flattenFormalList(parsedInfo: (Int, TypeNode, Identifier, Seq[(Int, TypeNode, Identifier)])): Seq[Formal] = parsedInfo match {
-    case (index, hType, hName, tail) =>
-      Formal(hType, hName, index) +: tail.map({ case(ix, type_, name) => Formal(type_, name, ix) })
+  def flattenFormalList(parsedInfo: (Int, (TypeNode, Identifier), Seq[(Int, (TypeNode, Identifier))])): Seq[Formal] = parsedInfo match {
+    case (index, (hType, hName), tail) =>
+      Formal(hType, hName, index) +: tail.map({ case(ix, (type_, name)) => Formal(type_, name, ix) })
   }
 
-  def formalList[_: P] = P(Index ~ type_ ~~ ws ~ id ~ ("," ~ Index ~ type_ ~~ ws ~ id).rep).?
+  def formalList[_: P] = P(Index ~ genVarDecl ~ ("," ~ Index ~ genVarDecl).rep).?
     .map({
       case Some(parsedInfo) => flattenFormalList(parsedInfo)
       case None => Seq()
     })
 
-  def methodDecl[_: P] = P(Index ~ "public" ~~ ws ~ type_ ~~ ws ~ id ~ "(" ~ formalList ~ ")" ~
+  def methodDecl[_: P] = P(Index ~ "public" ~~/ ws ~ type_ ~~ ws ~ id ~ "(" ~ formalList ~ ")" ~
     "{" ~/
       varDecl.rep ~
       stmt.rep ~
@@ -165,10 +167,10 @@ object Parser {
         MethodDecl(type_, name, formals, varDecls, stmts, returnVal, index)
     })
 
-  def classDecl[_: P] = P(Index ~ "class" ~~ ws ~ id ~ "{" ~ varDecl.rep ~ methodDecl.rep ~ "}")
+  def classDecl[_: P] = P(Index ~ "class" ~~/ ws ~ id ~ "{" ~ varDecl.rep ~ methodDecl.rep ~ "}")
     .map({ case(index, name, varDecls, methodDecls) => ClassDecl(name, varDecls, methodDecls, index) })
 
-  def mainClass[_: P] = P(Index ~ "class" ~~ ws ~ id ~ "{" ~
+  def mainClass[_: P] = P(Index ~ "class" ~~/ ws ~ id ~ "{" ~
       "public" ~~ ws ~ "static" ~~ ws ~ "void" ~~ ws ~ "main" ~ "(" ~ "String" ~ "[" ~ "]" ~ id ~ ")" ~ "{" ~
         varDecl.rep ~
         stmt.rep ~
