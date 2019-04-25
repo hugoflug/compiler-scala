@@ -72,6 +72,24 @@ object CodeGenerator {
       gen(binOp.rightOp, c) >>
       l(label) + ":"
 
+  private def genAssign(assignee: String, methodVar: Option[Var], c: Context)(label: Int) =
+    methodVar match {
+      case Some(value) => value match {
+        case Var(_, IntType(), varNo) =>
+          asm(label) >> "istore " + varNo
+        case Var(_, BooleanType(), varNo) =>
+          asm(label) >> "istore " + varNo
+        case Var(_, _, varNo) =>
+          asm(label) >> "astore " + varNo
+      }
+      case None =>
+        val clazz = c.currentClass.get
+        val type_ = clazz.fields(assignee).type_
+        val fieldDesc = clazz.name + "/" + assignee
+        val typeDesc = typeDescriptor(type_)
+        asm(label) >> "aload_0" >> "swap" >> "putfield " + esc(fieldDesc) + " " + esc(typeDesc)
+    }
+
   private def gen(classDecl: MainClass, symTable: SymbolTable, sourceFile: String): JasminAssembly = {
     val classTable = symTable(classDecl.name.name)
     val methodTable = classTable.methods("main")
@@ -111,24 +129,6 @@ object CodeGenerator {
 
     JasminAssembly(classDecl.name.name, codeGenResult.program)
   }
-
-  private def genAssign(assignee: String, methodVar: Option[Var], c: Context)(label: Int) =
-    methodVar match {
-      case Some(value) => value match {
-        case Var(_, IntType(), varNo) =>
-          asm(label) >> "istore " + varNo
-        case Var(_, BooleanType(), varNo) =>
-          asm(label) >> "istore " + varNo
-        case Var(_, _, varNo) =>
-          asm(label) >> "astore " + varNo
-      }
-      case None =>
-        val clazz = c.currentClass.get
-        val type_ = clazz.fields(assignee).type_
-        val fieldDesc = clazz.name + "/" + assignee
-        val typeDesc = typeDescriptor(type_)
-        asm(label) >> "aload_0" >> "swap" >> "putfield " + esc(fieldDesc) + " " + esc(typeDesc)
-    }
 
   private def gen(node: SyntaxTreeNode, c: Context)(label: Int): CodegenContext =
     node match {
