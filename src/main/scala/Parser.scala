@@ -3,7 +3,7 @@ object Parser {
 
   case class ParseError(msg: String, override val index: Int) extends CompilationError(index)
 
-  def ws[_: P] = P(&(CharIn(" \t\n\r") | "/*"))
+  def ws[_: P] = P(&(CharIn(" \t\n\r\f") | "/*"))
 
   def stmt[_: P]: P[Stmt] = P(assign | arrayAssign | block | syso | while_ | ifStmt)
 
