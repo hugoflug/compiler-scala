@@ -1,3 +1,4 @@
+import Compiler.CompilationError
 import Parser.ParseError
 import SymbolTableCreator.RedefinitionError
 import TypeChecker.{IntSizeError, MultidimArrayError, TypeNotInListError, UndefinedNameError, WrongArgumentAmountError, WrongTypeError}

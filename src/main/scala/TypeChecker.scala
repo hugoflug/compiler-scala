@@ -1,3 +1,4 @@
+import Compiler.CompilationError
 import SymbolTableCreator.{ClassTable, MethodTable, SymbolTable}
 import EitherUtils.orFirstError
 

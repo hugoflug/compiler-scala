@@ -6,6 +6,8 @@ import CodeGenerator.JasminAssembly
 import scala.io.Source
 
 object Compiler {
+  abstract class CompilationError(val index: Int)
+
   def main(args: Array[String]): Unit =
     if (args.isEmpty) println("Usage: mjc <file> [<file> ...]")
     else args.foreach(compileFromFile(_, "."))

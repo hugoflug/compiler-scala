@@ -28,10 +28,12 @@ object CodeGenerator {
   private def genBinaryOp(binOp: BinaryOp, instruction: String, c: Context)(label: Int) =
     asm(label) >>> gen(binOp.leftOp, c) >>> gen(binOp.rightOp, c) >> instruction
 
-  private def genComparison(compareInstr: String)(label: Int) = {
+  private def genComparisonOp(binOp: BinaryOp, compareInstr: String, c: Context)(label: Int) = {
     val setTrue = label
     val after = label + 1
-    asm(label + 2) >>
+    asm(label + 2) >>>
+      gen(binOp.leftOp, c) >>>
+      gen(binOp.rightOp, c) >>
       compareInstr + " l" + setTrue >>
       "iconst_0" >>
       "goto l" + after >>
@@ -66,9 +68,6 @@ object CodeGenerator {
   private def methodDescriptor(methodName: String, formals: Seq[Formal], returnType: Type) =
     methodName + "(" + formals.map(t => typeOfNode(t.typeName))
       .map(typeDescriptor).mkString + ")" + typeDescriptor(returnType)
-
-  private def genAllExpr(nodes: Seq[Expr], c: Context)(label: Int): CodegenContext =
-    nodes.map(n => gen(n, c)(_)).foldLeft(asm(label))(_ >>> _)
 
   private def genAll(nodes: Seq[SyntaxTreeNode], c: Context)(label: Int): CodegenContext =
     nodes.map(n => gen(n, c)(_)).foldLeft(asm(label))(_ >>> _)
@@ -208,6 +207,7 @@ object CodeGenerator {
           "l" + label + ":" >>>
           gen(elseStmt, c) >>
           "l" + after + ":"
+
       case IfWithoutElse(condition, thenStmt, _) =>
         val l = label
         asm(label + 1) >>>
@@ -216,28 +216,23 @@ object CodeGenerator {
           gen(thenStmt, c) >>
           "l" + l + ":"
 
-      case _ => asm(label)
-    }
-
-  private def gen(expr: Expr, c: Context)(label: Int): CodegenContext =
-    expr match {
       case p: Plus =>
         asm(label) >>> genBinaryOp(p, "iadd", c)
 
       case m: Minus =>
         asm(label) >>> genBinaryOp(m, "isub", c)
 
-      case GreaterThan(leftOp, rightOp, _) =>
-        asm(label) >>> gen(leftOp, c) >>> gen(rightOp, c) >>> genComparison("if_icmpgt")
+      case g: GreaterThan =>
+        asm(label) >>> genComparisonOp(g, "if_icmpgt", c)
 
-      case GreaterOrEqualThan(leftOp, rightOp, _) =>
-        asm(label) >>> gen(leftOp, c) >>> gen(rightOp, c) >>> genComparison("if_icmpge")
+      case g: GreaterOrEqualThan =>
+        asm(label) >>> genComparisonOp(g, "if_icmpge", c)
 
-      case LessThan(leftOp, rightOp, _) =>
-        asm(label) >>> gen(leftOp, c) >>> gen(rightOp, c) >>> genComparison("if_icmplt")
+      case lt: LessThan =>
+        asm(label) >>> genComparisonOp(lt, "if_icmplt", c)
 
-      case LessOrEqualThan(leftOp, rightOp, _) =>
-        asm(label) >>> gen(leftOp, c) >>> gen(rightOp, c) >>> genComparison("if_icmple")
+      case leq: LessOrEqualThan =>
+        asm(label) >>> genComparisonOp(leq, "if_icmple", c)
 
       case m: Mult =>
         asm(label) >>> genBinaryOp(m, "imul", c)
@@ -280,21 +275,21 @@ object CodeGenerator {
         val returnType = c.symTable(objType.name).methods(methodName.name).returnType
         val argTypeList = args.map(TypeChecker.getType(_, c))
         val methodDesc = methodDescriptor(objType.name, methodName.name, argTypeList, returnType)
-        asm(label) >>> gen(obj, c) >>> genAllExpr(args, c) >> "invokevirtual " + esc(methodDesc)
+        asm(label) >>> gen(obj, c) >>> genAll(args, c) >> "invokevirtual " + esc(methodDesc)
 
-      case Equal(leftOp, rightOp, _) =>
+      case e @ Equal(_, rightOp, _) =>
         val compareInstruct = TypeChecker.getType(rightOp, c) match {
           case ObjectType(_) | IntArrayType() => "if_acmpeq"
           case _ => "if_icmpeq"
         }
-        asm(label) >>> gen(leftOp, c) >>> gen(rightOp, c) >>> genComparison(compareInstruct)
+        asm(label) >>> genComparisonOp(e, compareInstruct, c)
 
-      case NotEqual(leftOp, rightOp, _) => // TODO: code duplication
+      case ne @ NotEqual(_, rightOp, _) =>
         val compareInstruct = TypeChecker.getType(rightOp, c) match {
           case ObjectType(_) | IntArrayType() => "if_acmpne"
           case _ => "if_icmpne"
         }
-        asm(label) >>> gen(leftOp, c) >>> gen(rightOp, c) >>> genComparison(compareInstruct)
+        asm(label) >>> genComparisonOp(ne, compareInstruct, c)
 
       case Parens(e, _) =>
         asm(label) >>> gen(e, c)

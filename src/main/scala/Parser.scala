@@ -1,3 +1,5 @@
+import Compiler.CompilationError
+
 object Parser {
   import fastparse._, JavaWhitespace._
 

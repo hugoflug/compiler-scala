@@ -1,3 +1,4 @@
+import Compiler.CompilationError
 import EitherUtils.orFirstError
 import TypeChecker.{Type, Void}
 
