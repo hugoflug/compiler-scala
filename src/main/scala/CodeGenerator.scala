@@ -25,35 +25,10 @@ object CodeGenerator {
 
   private def esc(s: String) = "'" + s + "'"
 
-  private def genBinaryOp(binOp: BinaryOp, instruction: String, c: Context)(label: Int) =
-    asm(label) >>> gen(binOp.leftOp, c) >>> gen(binOp.rightOp, c) >> instruction
-
-  private def genComparisonOp(binOp: BinaryOp, compareInstr: String, c: Context)(label: Int) = {
-    val setTrue = label
-    val after = label + 1
-    asm(label + 2) >>>
-      gen(binOp.leftOp, c) >>>
-      gen(binOp.rightOp, c) >>
-      compareInstr + " l" + setTrue >>
-      "iconst_0" >>
-      "goto l" + after >>
-      "l" + setTrue + ":" >>
-      "iconst_1" >>
-      "l" + after + ":"
-  }
-
-  private def genShortCircuitOp(binOp: BinaryOp, compareInstr: String, c: Context)(label: Int) =
-    asm(label + 1) >>>
-      gen(binOp.leftOp, c) >>
-      "dup" >>
-      compareInstr + " l" + label >>
-      "pop" >>>
-      gen(binOp.rightOp, c) >>
-      "l" + label + ":"
+  private def l(i: Int) = "l" + i
 
   private def oneOf[T](options: Option[T]*): Option[T] =
-    if (options.isEmpty) None
-    else options.head.orElse(oneOf(options.tail:_*))
+    options.find(_.isDefined).flatten
 
   private def typeDescriptor(t: Type): String = t match {
       case ObjectType(name) => "L" + name + ";"
@@ -65,12 +40,37 @@ object CodeGenerator {
   private def methodDescriptor(className: String, methodName: String, types: Seq[Type], returnType: Type) =
     className + "/" + methodName + "(" + types.map(typeDescriptor).mkString + ")" + typeDescriptor(returnType)
 
-  private def methodDescriptor(methodName: String, formals: Seq[Formal], returnType: Type) =
-    methodName + "(" + formals.map(t => typeOfNode(t.typeName))
-      .map(typeDescriptor).mkString + ")" + typeDescriptor(returnType)
+  private def methodDescriptor(methodName: String, formalTypes: Seq[Type], returnType: Type) =
+    methodName + "(" + formalTypes.map(typeDescriptor).mkString + ")" + typeDescriptor(returnType)
 
   private def genAll(nodes: Seq[SyntaxTreeNode], c: Context)(label: Int): CodegenContext =
-    nodes.map(n => gen(n, c)(_)).foldLeft(asm(label))(_ >>> _)
+    nodes.map(n => gen(n, c)(_)).foldLeft(asm(label)) { _ >>> _ }
+
+  private def genBinaryOp(binOp: BinaryOp, instruction: String, c: Context)(label: Int) =
+    asm(label) >>> gen(binOp.leftOp, c) >>> gen(binOp.rightOp, c) >> instruction
+
+  private def genComparisonOp(binOp: BinaryOp, compareInstr: String, c: Context)(label: Int) = {
+    val setTrue = label
+    val after = label + 1
+    asm(label + 2) >>>
+      gen(binOp.leftOp, c) >>>
+      gen(binOp.rightOp, c) >>
+      compareInstr + " " + l(setTrue) >>
+      "iconst_0" >>
+      "goto " + l(after) >>
+      l(setTrue) + ":" >>
+      "iconst_1" >>
+      l(after) + ":"
+  }
+
+  private def genShortCircuitOp(binOp: BinaryOp, compareInstr: String, c: Context)(label: Int) =
+    asm(label + 1) >>>
+      gen(binOp.leftOp, c) >>
+      "dup" >>
+      compareInstr + " " + l(label) >>
+      "pop" >>>
+      gen(binOp.rightOp, c) >>
+      l(label) + ":"
 
   private def gen(classDecl: MainClass, symTable: SymbolTable, sourceFile: String): JasminAssembly = {
     val classTable = symTable(classDecl.name.name)
@@ -146,7 +146,8 @@ object CodeGenerator {
       case decl @ MethodDecl(type_, Identifier(name, _), argList, varDeclList, stmts, returnVal, _) =>
         val methodTable = c.symTable(c.currentClass.get.name).methods(name)
         val newContext = c.copy(currentMethod = Some(methodTable))
-        val methodDescr = methodDescriptor(name, argList, methodTable.returnType)
+        val argTypeList = argList.map(a => typeOfNode(a.typeName))
+        val methodDescr = methodDescriptor(name, argTypeList, methodTable.returnType)
         val maxStack = StackDepthCalculator.maxStackDepth(decl) + 1
         asm(label) >>
           ".method public " + esc(methodDescr) >>
@@ -166,12 +167,12 @@ object CodeGenerator {
         val start = label
         val after = label + 1
         asm(label + 2) >>
-          "l" + start + ":" >>>
+          l(start) + ":" >>>
           gen(condition, c) >>
-          "ifeq l" + after >>>
+          "ifeq " + l(after) >>>
           gen(stmt, c) >>
-          "goto l" + start >>
-          "l" + after + ":"
+          "goto " + l(start) >>
+          l(after) + ":"
 
       case Syso(printee, _) =>
         val printeeType = TypeChecker.getType(printee, c)
@@ -187,34 +188,34 @@ object CodeGenerator {
                 val falze = label
                 val after = label + 1
                 asm(label + 2) >>
-                  "ifeq l" + falze >>
+                  "ifeq " + l(falze) >>
                   "ldc \"true\"" >>
-                  "goto l" + after >>
-                  "l" + falze + ":" >>
+                  "goto " + l(after) >>
+                  l(falze) + ":" >>
                   "ldc \"false\"" >>
-                  "l" + after + ":" >>
+                  l(after) + ":" >>
                   "invokevirtual java/io/PrintStream/println(Ljava/lang/String;)V"
             })
 
       case If(condition, thenStmt, elseStmt, _) =>
-        val l = label
+        val lbl = label
         val after = label + 1
         asm(label + 2) >>>
           gen(condition, c) >>
-          "ifeq l" + l >>>
+          "ifeq " + l(lbl) >>>
           gen(thenStmt, c) >>
-          "goto l" + after >>
-          "l" + label + ":" >>>
+          "goto " + l(after) >>
+          l(lbl) + ":" >>>
           gen(elseStmt, c) >>
-          "l" + after + ":"
+          l(after) + ":"
 
       case IfWithoutElse(condition, thenStmt, _) =>
-        val l = label
+        val lbl = label
         asm(label + 1) >>>
           gen(condition, c) >>
-          "ifeq l" + l >>>
+          "ifeq " + l(lbl) >>>
           gen(thenStmt, c) >>
-          "l" + l + ":"
+          l(lbl) + ":"
 
       case p: Plus =>
         asm(label) >>> genBinaryOp(p, "iadd", c)
