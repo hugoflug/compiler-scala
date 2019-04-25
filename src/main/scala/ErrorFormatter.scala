@@ -1,6 +1,6 @@
 import Parser.ParseError
 import SymbolTableCreator.RedefinitionError
-import TypeChecker.{IntSizeError, TypeNotInListError, UndefinedNameError, WrongArgumentAmountError, WrongTypeError}
+import TypeChecker.{IntSizeError, MultidimArrayError, TypeNotInListError, UndefinedNameError, WrongArgumentAmountError, WrongTypeError}
 
 object ErrorFormatter {
   def format(error: CompilationError, program: String, sourceFile: String) =
@@ -20,6 +20,8 @@ object ErrorFormatter {
         s"Redefinition error: $name already defined"
       case ParseError(msg, _) =>
         s"Parse error: $msg"
+      case MultidimArrayError(_) =>
+        s"Parse error: multidimensional arrays not allowed"
       case IntSizeError(size, _) =>
         s"Number size error: $size is too large for an int"
     }

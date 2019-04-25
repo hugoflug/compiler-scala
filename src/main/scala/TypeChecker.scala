@@ -8,6 +8,7 @@ object TypeChecker {
   case class WrongArgumentAmountError(actual: Int, expected: Int, override val index: Int) extends TypeError(index)
   case class UndefinedNameError(name: String, override val index: Int) extends TypeError(index)
   case class IntSizeError(size: Long, override val index: Int) extends TypeError(index)
+  case class MultidimArrayError(override val index: Int) extends TypeError(index)
 
   case class Context(symTable: SymbolTable, currentClass: Option[ClassTable], currentMethod: Option[MethodTable])
 
@@ -53,6 +54,7 @@ object TypeChecker {
         for {
           _ <- assertType(a.array, IntArrayType(), c)
           _ <- assertType(a.arrayIndex, IntType(), c)
+          _ <- assertNotNewArray(a.array)
         } yield IntType()
       case n: NewObject =>
         val name = n.typeName.name
@@ -137,6 +139,10 @@ object TypeChecker {
       _ <- assertTypeListEq(expectedParams.map(_.type_), params, index)
     } yield methodTable.returnType
 
+  private def assertNotNewArray(expr: Expr): Either[TypeError, Unit] = expr match {
+    case NewArray(_, index) => Left(MultidimArrayError(index))
+    case _ => Right()
+  }
   private def assertType(expr: Expr, expected: Type, context: Context): Either[TypeError, Unit] =
     for {
       type_ <- typeCheck(expr, context)
