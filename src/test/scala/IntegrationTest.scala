@@ -7,8 +7,6 @@ import sys.process._
 import org.scalatest.{AppendedClues, Matchers}
 import ErrorFormatter.format
 
-import scala.io.Source
-
 class IntegrationTest extends org.scalatest.FunSuite with Matchers with AppendedClues {
   private val extensions = Array("JVM", "IWE", "CLE", "CGT", "CGE", "CEQ", "CNE", "BDJ")
 
