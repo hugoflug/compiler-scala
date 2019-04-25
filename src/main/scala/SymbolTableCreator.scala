@@ -38,15 +38,15 @@ object SymbolTableCreator {
   private def createMethodTable(methodDecl: MethodDecl): R[MethodTable] =
     for {
       params <- dedup(createVarMap(methodDecl.argList))
-      locals <- dedup(createVarMap(methodDecl.varDeclList))
+      locals <- dedup(createVarMap(methodDecl.varDeclList, methodDecl.argList.length + 1))
       name = methodDecl.name.name
       returnType = methodDecl.typeName
       _ <- assertNoDuplicates(params.keys.toSeq ++ locals.keys.toSeq)
     } yield MethodTable(name, TypeChecker.typeOfNode(returnType), params, locals)
 
-  private def createVarMap(genVarDecls: Seq[GenVarDecl]): Map[String, Seq[Var]] =
+  private def createVarMap(genVarDecls: Seq[GenVarDecl], startIndex: Int = 1): Map[String, Seq[Var]] =
     genVarDecls.zipWithIndex.map({ case(v, i) =>
-      Var(v.name.name, TypeChecker.typeOfNode(v.typeName), i + 1) }).groupBy(_.name)
+      Var(v.name.name, TypeChecker.typeOfNode(v.typeName), i + startIndex) }).groupBy(_.name)
 
   private def assertNoDuplicates[A](it: Iterable[A]): R[Map[A, A]] =
     dedup(it.groupBy(a => a).mapValues(_.toSeq))
