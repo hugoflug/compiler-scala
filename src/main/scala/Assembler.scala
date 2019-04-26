@@ -4,70 +4,73 @@ object Assembler {
   case class ClassRef(index: Int, nameIndex: Int)
   case class MethodRef(index: Int, classIndex: Int, nameAndTypeIndex: Int)
   case class FieldRef(index: Int, classIndex: Int, nameAndTypeIndex: Int)
-  case class NameAndTypeRef(index: Int, nameIndex: Int, typeIndex: Int)
+  case class NatRef(index: Int, nameIndex: Int, typeIndex: Int)
 
-  case class NameAndTypeKey(name: String, typeDesc: String)
+  case class NatKey(name: String, typeDesc: String)
   case class MethodKey(clazz: String, name: String, typeDesc: String)
   case class FieldKey(clazz: String, name: String, typeDesc: String)
 
+  case class ConstantPoolKeys(methodKeys: Seq[MethodKey], fieldKeys: Seq[FieldKey], stringKeys: Seq[String],
+                              intKeys: Seq[Int], classKeys: Seq[String])
+
   case class ConstantPoolInfo(ints: Map[Int, Int], utf8Strings: Map[String, Int], classRefs: Map[String, ClassRef],
-                              nameAndTypeRefs: Map[NameAndTypeKey, NameAndTypeRef],
-                              fieldRefs: Map[FieldKey, FieldRef], methodRefs: Map[MethodKey, MethodRef]) {
+                              nameAndTypeRefs: Map[NatKey, NatRef], fieldRefs: Map[FieldKey, FieldRef],
+                              methodRefs: Map[MethodKey, MethodRef])
 
-    def size = ints.size + utf8Strings.size + classRefs.size + nameAndTypeRefs.size + fieldRefs.size + methodRefs.size
 
-    def getOrAddInt(i: Int): (ConstantPoolInfo, Int) =
-      ints.get(i) match {
-        case Some(index) => (this, index)
-        case None => (this.copy(ints = ints + (i -> size)), size)
-      }
+  def fieldKeyToRef(key: FieldKey, index: Int, classes: Map[String, ClassRef], nats: Map[NatKey, NatRef]): FieldRef =
+    FieldRef(index, classes(key.clazz).index, nats(NatKey(key.name, key.typeDesc)).index)
 
-    def getOrAddString(s: String): (ConstantPoolInfo, Int) =
-      utf8Strings.get(s) match {
-        case Some(index) => (this, index)
-        case None => (this.copy(utf8Strings = utf8Strings + (s -> size)), size)
-      }
+  def methodKeyToRef(key: MethodKey, index: Int, classes: Map[String, ClassRef], nats: Map[NatKey, NatRef]): MethodRef =
+    MethodRef(index, classes(key.clazz).index, nats(NatKey(key.name, key.typeDesc)).index)
 
-    def addClassRef(key: String, ref: ClassRef): ConstantPoolInfo =
-      this.copy(classRefs = classRefs + (key -> ref))
+  def natKeyToRef(key: NatKey, index: Int, strings: Map[String, Int]): NatRef =
+    NatRef(index, strings(key.name), strings(key.typeDesc))
 
-    def getOrAddClassRef(c: String): (ConstantPoolInfo, Int) =
-      classRefs.get(c) match {
-        case Some(cr) => (this, cr.index)
-        case None =>
-          val (cp1, nameIndex) = getOrAddString(c)
-          (cp1.copy(classRefs = classRefs + (c -> ClassRef(size, nameIndex))),
-            size)
-      }
+  def findConstantPoolInfo(c: ConstantPoolKeys): ConstantPoolInfo = {
 
-    def addNameAndTypeRef(key: NameAndTypeKey, ref: NameAndTypeRef): ConstantPoolInfo =
-      this.copy(nameAndTypeRefs = nameAndTypeRefs + (key -> ref))
+    val ints = c.intKeys.zipWithIndex.toMap
+    val startIndex1 = ints.size
 
-    def getOrAddNameAndTypeRef(key: NameAndTypeKey): (ConstantPoolInfo, Int) =
-      nameAndTypeRefs.get(key) match {
-        case Some(ref) => (this, ref.index)
-        case None =>
-          val (cp1, nameIndex) = this.getOrAddString(key.name)
-          val (cp2, typeIndex) = cp1.getOrAddString(key.typeDesc)
-          (cp2.addNameAndTypeRef(key, NameAndTypeRef(size, nameIndex, typeIndex)), size)
-      }
+    val strings = c.stringKeys ++
+      c.classKeys ++
+      c.fieldKeys.map(_.clazz) ++
+      c.fieldKeys.map(_.name) ++
+      c.fieldKeys.map(_.typeDesc) ++
+      c.methodKeys.map(_.clazz) ++
+      c.methodKeys.map(_.name) ++
+      c.methodKeys.map(_.typeDesc)
+    val stringInfos = strings.zipWithIndex
+      .map({ case(s, index) => (s, index + startIndex1) }).toMap
+    val startIndex2 = startIndex1 + strings.size
 
-    def addFieldRef(key: FieldKey, ref: FieldRef): ConstantPoolInfo =
-      this.copy(fieldRefs = fieldRefs + (key -> ref))
+    val classInfos = c.classKeys.zipWithIndex
+      .map(a => (a._1, a._2 + startIndex2))
+      .map({ case(key, index) => (key, ClassRef(index, stringInfos(key))) })
+      .toMap
+    val startIndex3 = startIndex2 + classInfos.size
 
-    def getOrAddFieldRef(key: FieldKey): (ConstantPoolInfo, Int) =
-      fieldRefs.get(key) match {
-        case Some(ref) => (this, ref.index)
-        case None =>
-          val (cp1, classIndex) = this.getOrAddClassRef(key.clazz)
-          val (cp2, nameAndTypeIndex) = cp1.getOrAddNameAndTypeRef(NameAndTypeKey(key.name, key.typeDesc))
-          (cp2.addFieldRef(key, FieldRef(size, classIndex, nameAndTypeIndex)), size)
-      }
-  }
+    val natKeys =
+      c.fieldKeys.map(f => NatKey(f.name, f.typeDesc)) ++
+      c.methodKeys.map(f => NatKey(f.name, f.typeDesc))
+    val natInfos = natKeys.zipWithIndex
+      .map(a => (a._1, a._2 + startIndex3))
+      .map({ case(key, index) => (key, natKeyToRef(key, index, stringInfos)) })
+      .toMap
+    val startIndex4 = startIndex3 + natInfos.size
 
-  def findConstantPoolInfo(classAssembly: ClassAssembly) = {
-    val info = ConstantPoolInfo(Map(), Map(), Map(), Map(), Map(), Map())
-    val newInfo = info.getOrAddString(classAssembly.className)
+    val methodInfos = c.methodKeys.zipWithIndex
+      .map(a => (a._1, a._2 + startIndex4))
+      .map({ case(key, index) => (key, methodKeyToRef(key, index, classInfos, natInfos)) })
+      .toMap
+    val startIndex5 = startIndex4 + methodInfos.size
+
+    val fieldInfos = c.fieldKeys.zipWithIndex
+      .map(a => (a._1, a._2 + startIndex5))
+      .map({ case(key, index) => (key, fieldKeyToRef(key, index, classInfos, natInfos)) })
+      .toMap
+
+    ConstantPoolInfo(ints, stringInfos, classInfos, natInfos, fieldInfos, methodInfos)
   }
 
 
