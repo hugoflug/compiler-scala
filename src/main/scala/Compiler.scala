@@ -1,4 +1,4 @@
-import CodeGenerator.JasminAssembly
+import Assembler.ClassFile
 
 object Compiler {
   trait CompilationError {
@@ -18,19 +18,20 @@ object Compiler {
       case Right(_) =>
     }
 
-  def compileToFiles(program: String, sourceFile: String, outDir: String): Either[CompilationError, Seq[JasminAssembly]] =
+  def compileToFiles(program: String, sourceFile: String, outDir: String): Either[CompilationError, Seq[ClassFile]] =
     compile(program, sourceFile) match {
       case Left(error) => Left(error)
       case Right(assemblies) =>
-        assemblies.foreach(a => FileUtils.writeFile(outDir + "/" + a.className + ".jasmin", a.assembly))
+        assemblies.foreach(a => FileUtils.writeFile(outDir + "/" + a.filename + ".class", a.content))
         Right(assemblies)
     }
 
-  def compile(program: String, sourceFile: String): Either[CompilationError, Seq[JasminAssembly]] =
+  def compile(program: String, sourceFile: String): Either[CompilationError, Seq[ClassFile]] =
     for {
       syntaxTree <- Parser.parse(program)
       symTable <- SymbolTableCreator.create(syntaxTree)
       _ <- TypeChecker.typeCheck(syntaxTree, symTable)
-      jasminAssembly = CodeGenerator.generate(syntaxTree, symTable, sourceFile)
-    } yield jasminAssembly
+      classAssemblies = CodeGenerator.generate(syntaxTree, symTable)
+      classFiles = classAssemblies.map(Assembler.assemble)
+    } yield classFiles
 }
