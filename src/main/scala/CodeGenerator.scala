@@ -1,5 +1,5 @@
 import SymbolTableCreator.{SymbolTable, Var}
-import TypeChecker.{BooleanType, Context, IntArrayType, IntType, ObjectType, Type, typeOfNode}
+import TypeChecker.{BooleanType, Context, IntArrayType, IntType, ObjectType, Type, VoidType, typeOfNode}
 
 object CodeGenerator {
   case class JasminAssembly(className: String, assembly: String)
@@ -35,6 +35,7 @@ object CodeGenerator {
       case IntType() => "I"
       case IntArrayType() => "[I"
       case BooleanType() => "I"
+      case VoidType() => ""
     }
 
   private def methodDescriptor(className: String, methodName: String, types: Seq[Type], returnType: Type) =

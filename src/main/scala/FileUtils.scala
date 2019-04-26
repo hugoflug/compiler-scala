@@ -1,6 +1,7 @@
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 
+import scala.language.reflectiveCalls
 import scala.io.Source
 
 object FileUtils {

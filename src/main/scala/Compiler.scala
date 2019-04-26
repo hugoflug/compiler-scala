@@ -1,7 +1,9 @@
 import CodeGenerator.JasminAssembly
 
 object Compiler {
-  abstract class CompilationError(val index: Int)
+  trait CompilationError {
+    def index: Int
+  }
 
   def main(args: Array[String]): Unit =
     if (args.isEmpty) println("Usage: mjc <file> [<file> ...]")

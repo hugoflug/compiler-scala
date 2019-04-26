@@ -3,7 +3,7 @@ import Compiler.CompilationError
 object Parser {
   import fastparse._, JavaWhitespace._
 
-  case class ParseError(msg: String, override val index: Int) extends CompilationError(index)
+  case class ParseError(msg: String, index: Int) extends CompilationError
 
   def ws[_: P] = P(&(CharIn(" \t\n\r\f") | "/*"))
 

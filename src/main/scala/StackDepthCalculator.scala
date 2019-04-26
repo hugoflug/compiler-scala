@@ -1,3 +1,5 @@
+import scala.language.implicitConversions
+
 object StackDepthCalculator {
 
   def maxStackDepth(syntaxTreeNode: SyntaxTreeNode) =

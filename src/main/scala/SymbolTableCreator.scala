@@ -1,6 +1,6 @@
 import Compiler.CompilationError
 import EitherUtils.orFirstError
-import TypeChecker.{Type, Void}
+import TypeChecker.{Type, VoidType}
 
 object SymbolTableCreator {
   type SymbolTable = Map[String, ClassTable]
@@ -9,7 +9,7 @@ object SymbolTableCreator {
   case class MethodTable(name: String, returnType: Type, params: Map[String, Var], locals: Map[String, Var])
   case class Var(name: String, type_ : Type, varNo: Int)
 
-  case class RedefinitionError(name: String, override val index: Int) extends CompilationError(index)
+  case class RedefinitionError(name: String, index: Int) extends CompilationError
 
   def create(program: Program): Either[RedefinitionError, SymbolTable] =
     for {
@@ -24,7 +24,7 @@ object SymbolTableCreator {
     for {
       varDecls <- dedup(createVarMap(mainClass.varDecls))
       name = mainClass.name.name
-      methods = Map("main" -> MethodTable("main", Void(), Map(), varDecls))
+      methods = Map("main" -> MethodTable("main", VoidType(), Map(), varDecls))
       fields = Map[String, Var]()
     } yield ClassTable(name, methods, fields)
 
