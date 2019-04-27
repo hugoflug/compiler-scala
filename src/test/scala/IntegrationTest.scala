@@ -9,6 +9,7 @@ import ErrorFormatter.format
 
 class IntegrationTest extends org.scalatest.FunSuite with Matchers with AppendedClues {
   private val extensions = Array("JVM", "IWE", "CLE", "CGT", "CGE", "CEQ", "CNE", "BDJ")
+  private val resourceDir = "./src/test/resources/integration-test/"
 
   private def run(command: String, directory: String): (Int, String, String) = {
     val stdout = new StringBuilder
@@ -42,7 +43,7 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
     val classes = result.right.get.map(_.className)
     val jasminFiles = classes.map(c => s"$outDir/$c.jasmin").mkString(" ")
 
-    val (_, _, stdErr) = run(s"java -jar jasmin.jar $jasminFiles -d $outDir", "./tools")
+    val (_, _, stdErr) = run(s"java -jar jasmin.jar $jasminFiles -d $outDir", resourceDir)
     stdErr shouldBe empty
 
     val (errCode, stdOut, stdErr2) = run(s"java $mainClass", outDir)
@@ -50,7 +51,7 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
   }
 
   private def forAllFiles(itSubDir: String)(testFn: (String, File) => Unit): Unit = {
-    val subDirs = listFiles("./src/test/resources/integration-test/" + itSubDir)
+    val subDirs = listFiles(resourceDir + "/" + itSubDir)
 
     subDirs.filter(_.isDirectory).foreach(subDir => subDir.listFiles((_, f) => f.endsWith(".java"))
       .foreach(sourceFile => {

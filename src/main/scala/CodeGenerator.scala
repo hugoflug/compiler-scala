@@ -128,6 +128,8 @@ object CodeGenerator {
       ".end method" >>>
       genAll(classDecl.methodDecls, context)
 
+    val b = ""
+
     JasminAssembly(classDecl.name.name, codeGenResult.program)
   }
 
