@@ -31,7 +31,7 @@ object CodeGenerator {
       className = classDecl.name.name,
       superClass = "java/lang/Object",
       fields = Seq(),
-      methods = Seq(MethodInfo(
+      methods = Seq(MethodAssembly(
         name = "main",
         typeDesc = typeDescriptor(VoidType()),
         maxStack = StackDepthCalculator.maxStackDepth(classDecl.stmts) + 1,
@@ -53,14 +53,14 @@ object CodeGenerator {
     )
   }
 
-  private def genField(varDecl: VarDecl) : FieldInfo =
-    FieldInfo(varDecl.name.name, typeDescriptor(typeOfNode(varDecl.typeName)))
+  private def genField(varDecl: VarDecl) : FieldAssembly =
+    FieldAssembly(varDecl.name.name, typeDescriptor(typeOfNode(varDecl.typeName)))
 
-  private def genMethod(method: MethodDecl, context: Context): MethodInfo = {
+  private def genMethod(method: MethodDecl, context: Context): MethodAssembly = {
     val methodTable = context.symTable(context.currentClass).methods(method.name.name)
     val c = context.copy(currentMethod = Some(methodTable))
 
-    MethodInfo(
+    MethodAssembly(
       name = method.name.name,
       typeDesc = typeDescriptor(typeOfNode(method.typeName)),
       maxStack = StackDepthCalculator.maxStackDepth(method.stmts) + 1,

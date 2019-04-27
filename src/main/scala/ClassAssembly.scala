@@ -1,6 +1,6 @@
-case class ClassAssembly(className: String, superClass: String, fields: Seq[FieldInfo], methods: Seq[MethodInfo])
-case class MethodInfo(name: String, typeDesc: String, maxStack: Int, maxLocals: Int, code: Seq[AssemblyInstruction])
-case class FieldInfo(name: String, typeDesc: String)
+case class ClassAssembly(className: String, superClass: String, fields: Seq[FieldAssembly], methods: Seq[MethodAssembly])
+case class MethodAssembly(name: String, typeDesc: String, maxStack: Int, maxLocals: Int, code: Seq[AssemblyInstruction])
+case class FieldAssembly(name: String, typeDesc: String)
 
 sealed trait AssemblyInstruction
 
