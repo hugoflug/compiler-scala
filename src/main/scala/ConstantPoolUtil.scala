@@ -10,7 +10,7 @@ object ConstantPoolUtil {
   case class FieldEntry(ref: FieldRef, index: Int, classIndex: Int, nameAndTypeIndex: Int) extends ConstantPoolEntry
   case class NatEntry(ref: NatRef, index: Int, nameIndex: Int, typeIndex: Int) extends ConstantPoolEntry
 
-  private trait ConstantPoolRef
+  trait ConstantPoolRef
   case class ClassRef(name: String) extends ConstantPoolRef
   case class StringRef(value: String) extends ConstantPoolRef
   case class IntRef(value: Int) extends ConstantPoolRef
