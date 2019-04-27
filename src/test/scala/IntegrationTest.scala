@@ -9,7 +9,7 @@ import ErrorFormatter.format
 
 class IntegrationTest extends org.scalatest.FunSuite with Matchers with AppendedClues {
   private val extensions = Array("JVM", "IWE", "CLE", "CGT", "CGE", "CEQ", "CNE", "BDJ")
-  private val resourceDir = getClass.getResource("/integration-test").getPath.toString
+  private val resourceDir = getClass.getResource("/integration-test").getPath
 
   private def run(command: String, directory: String): (Int, String, String) = {
     val stdout = new StringBuilder
