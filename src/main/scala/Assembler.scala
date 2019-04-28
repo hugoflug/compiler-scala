@@ -24,6 +24,7 @@ object Assembler {
     ClassFile(clazz.className + ".class", content)
   }
 
+
   def hex(s: String): Array[Byte] = s.grouped(2).map(Integer.parseInt(_, 16).toByte).toArray
 
   def fromUShort(i: Int): Array[Byte] = ByteBuffer.allocate(4).putInt(i).array()
