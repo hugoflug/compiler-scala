@@ -18,6 +18,7 @@ object Assembler {
     interfaceTable ++
     fieldTable(clazz.fields, cp) ++
     methodTable(clazz.methods, cp) ++
+
     attributesTable
 
     ClassFile(clazz.className + ".class", content)
