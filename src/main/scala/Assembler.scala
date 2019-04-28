@@ -2,6 +2,7 @@ import java.nio.ByteBuffer
 
 import ConstantPoolUtil.{ClassRef, ConstantPoolEntry, ConstantPoolRef}
 
+
 object Assembler {
   case class ClassFile(filename: String, content: Array[Byte])
 
