@@ -6,9 +6,11 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: scala-library-dependencies-{{ checksum "build.sbt" }}
+          keys:
+            - sbt-deps-{{ checksum "build.sbt" }}
+            - sbt-deps-
       - run: sbt update
       - save_cache:
           paths: [ "~/.m2", "~/.ivy2", "~/.cache/coursier" ]
-          key: scala-library-dependencies-{{ checksum "build.sbt" }}
+          key: sbt-deps-{{ checksum "build.sbt" }}
       - run: sbt test
