@@ -29,6 +29,14 @@ object ByteUtils {
       Array(((x >> 24) & 0xFF).toByte, ((x >> 16) & 0xFF).toByte, ((x >> 8) & 0xFF).toByte, (x & 0xFF).toByte)
     def u2: Array[Byte] =
       Array(((x >> 8) & 0xFF).toByte, (x & 0xFF).toByte)
+    def u1: Array[Byte] =
+      Array(x.toByte)
+    def s2: Array[Byte] = {
+      val buf = ByteBuffer.allocate(2)
+      buf.putShort(x.toShort)
+      buf.array
+    }
+
   }
 /*
   implicit class XLong(val x: Long) extends AnyVal with Byteable {

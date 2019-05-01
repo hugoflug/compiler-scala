@@ -99,7 +99,7 @@ object Assembler {
   }
 
   private def methodCode(method: MethodAssembly, cpIndex: CpIndex) =
-    method.code.toArray.flatMap(InstructionTable.mkBytes(_, cpIndex))
+    InstructionTable.mkBytes(method.code, cpIndex)
 
   private def exceptionTable = exceptionTableLength
   private def exceptionTableLength = 0.u2
