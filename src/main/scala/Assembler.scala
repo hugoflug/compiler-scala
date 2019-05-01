@@ -1,14 +1,11 @@
-import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
 
 import ConstantPoolUtil._
 import ByteUtils._
-//import ByteArrayConversions._
-import fs2.{Chunk, Pure, Stream}
+import FileUtils.FileOutput
 
 object Assembler {
-  case class ClassFile(filename: String, content: Array[Byte])
-
-  def assemble(clazz: ClassAssembly): ClassFile = {
+  def assemble(clazz: JVMClass): FileOutput = {
     val cp = ConstantPoolUtil.constantPoolEntries(clazz)
     val cpIndex = cp.map(e => (e.ref, e.index)).toMap
     val cpEntryList = cp.toList.sortBy(_.index)
@@ -29,30 +26,41 @@ object Assembler {
     ClassFile(clazz.className + ".class", content)
   }
   
-  private type CpIndex = Map[ConstantPoolRef, Int]
+  private type ConstantPoolIndex = Map[ConstantPoolRef, Int]
 
-  private def magicNumber = "CAFEBABE".bytes
+  private def magicNumber = "CAFEBABE".hex
   private def minorVersion = 0.u2 ++ 3.u2
   private def majorVersion = 0.u2 ++ 45.u2
 
   /* https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.4 */
-  private def constantPool(entries: Seq[ConstantPoolEntry]): Array[Byte] = ???
+  private def constantPool(entries: Seq[ConstantPoolEntry]) =
+    entries.toArray.flatMap(constantPoolEntry)
 
-  private def classInfo(className: String, cpIndex: CpIndex) =
+  private def constantPoolEntry(entry: ConstantPoolEntry) =
+    entry match {
+      case StringEntry(StringRef(s), _) => 1.u1 ++ s.length.u2 ++ s.getBytes(StandardCharsets.UTF_8)
+      case IntEntry(IntRef(i), _) => 3.u1 ++ i.s4
+      case ClassEntry(_, _, nameIndex) => 7.u1 ++ nameIndex.u2
+      case FieldEntry(_, _, classIndex, natIndex) => 9.u1 ++ classIndex.u2 ++ natIndex.u2
+      case MethodEntry(_, _, classIndex, natIndex) => 10.u1 ++ classIndex.u2 ++ natIndex.u2
+      case NatEntry(_, _, nameIndex, typeIndex) => 12.u1 ++ nameIndex.u2 ++ typeIndex.u2
+    }
+
+  private def classInfo(className: String, cpIndex: ConstantPoolIndex) =
     cpIndex(ClassRef(className)).u2
 
   private def accessFlags = publicAccess
-  private def publicAccess = "0001".bytes
+  private def publicAccess = "0001".hex
 
   private def interfaceTable = interfaceTableLength
   private def interfaceTableLength = 0.u2
 
-  private def fieldTable(fields: Seq[FieldAssembly], cpIndex: CpIndex) =
+  private def fieldTable(fields: Seq[JVMField], cpIndex: ConstantPoolIndex) =
     fields.length.u2 ++
     fields.flatMap(fieldInfo(_, cpIndex))
 
   /* https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.5 */
-  private def fieldInfo(field: FieldAssembly, cpIndex: CpIndex): Array[Byte] =
+  private def fieldInfo(field: JVMField, cpIndex: ConstantPoolIndex) =
     publicAccess ++
     cpIndex(StringRef(field.name)).u2 ++
     cpIndex(StringRef(field.typeDesc)).u2 ++
@@ -61,25 +69,25 @@ object Assembler {
   private def fieldAttributes = fieldAttributesLength
   private def fieldAttributesLength = 0.u2
 
-  private def methodTable(methods: Seq[MethodAssembly], cpIndex: CpIndex) =
+  private def methodTable(methods: Seq[JVMMethod], cpIndex: ConstantPoolIndex) =
     methods.length.u2 ++
     methods.flatMap(methodInfo(_, cpIndex))
 
   /* https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.6 */
-  private def methodInfo(method: MethodAssembly, cpIndex: CpIndex) =
+  private def methodInfo(method: JVMMethod, cpIndex: ConstantPoolIndex) =
     publicAccess ++
     cpIndex(StringRef(method.name)).u2 ++
     cpIndex(StringRef(method.typeDesc)).u2 ++
     methodAttributes(method, cpIndex)
 
-  private def methodAttributesLength = 1.u2
-
-  private def methodAttributes(method: MethodAssembly, cpIndex: CpIndex) =
+  private def methodAttributes(method: JVMMethod, cpIndex: ConstantPoolIndex) =
     methodAttributesLength ++
     methodCodeAttribute(method, cpIndex)
 
+  private def methodAttributesLength = 1.u2
+
   /* https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.7.3 */
-  private def methodCodeAttribute(method: MethodAssembly, cpIndex: CpIndex) = {
+  private def methodCodeAttribute(method: JVMMethod, cpIndex: ConstantPoolIndex) = {
     val body = methodCodeAttributeBody(method, cpIndex)
 
     cpIndex(StringRef("Code")).u2 ++
@@ -87,7 +95,7 @@ object Assembler {
     body
   }
 
-  private def methodCodeAttributeBody(method: MethodAssembly, cpIndex: CpIndex) = {
+  private def methodCodeAttributeBody(method: JVMMethod, cpIndex: ConstantPoolIndex) = {
     val code = methodCode(method, cpIndex)
 
     method.maxStack.u2 ++
@@ -98,7 +106,7 @@ object Assembler {
     methodAttributesTable
   }
 
-  private def methodCode(method: MethodAssembly, cpIndex: CpIndex) =
+  private def methodCode(method: JVMMethod, cpIndex: ConstantPoolIndex) =
     InstructionTable.mkBytes(method.code, cpIndex)
 
   private def exceptionTable = exceptionTableLength
@@ -107,7 +115,6 @@ object Assembler {
   private def methodAttributesTable = methodAttributesTableLength
   private def methodAttributesTableLength = 0.u2
 
-
-  def attributesTable = attributesTableLength
-  def attributesTableLength = 0.u2
+  private def attributesTable = attributesTableLength
+  private def attributesTableLength = 0.u2
 }

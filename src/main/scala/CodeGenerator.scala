@@ -3,10 +3,10 @@ import TypeChecker.{BooleanType, Context, IntArrayType, IntType, ObjectType, Typ
 
 object CodeGenerator {
 
-  def generate(program: Program, symTable: SymbolTable): Seq[ClassAssembly] =
+  def generate(program: Program, symTable: SymbolTable): Seq[JVMClass] =
     genMainClass(program.mainClass, symTable) +: program.classDecls.map(genClass(_, symTable))
 
-  private case class CodegenContext(instructions: Seq[AssemblyInstruction], currentLabel: Int) {
+  private case class CodegenContext(instructions: Seq[JVMInstruction], currentLabel: Int) {
     def flatMap(f: Int => CodegenContext): CodegenContext = {
       val result = f(currentLabel)
       CodegenContext(instructions ++ result.instructions, result.currentLabel)
@@ -14,7 +14,7 @@ object CodeGenerator {
 
     def >>>(f: Int => CodegenContext): CodegenContext = flatMap(f)
 
-    def >>(i: AssemblyInstruction): CodegenContext = CodegenContext(instructions :+ i, currentLabel)
+    def >>(i: JVMInstruction): CodegenContext = CodegenContext(instructions :+ i, currentLabel)
   }
 
   private def asm(currentLabel: Int): CodegenContext = CodegenContext(Seq(), currentLabel)
@@ -22,16 +22,16 @@ object CodeGenerator {
   private def oneOf[T](options: Option[T]*): Option[T] =
     options.find(_.isDefined).flatten
 
-  private def genMainClass(classDecl: MainClass, symTable: SymbolTable): ClassAssembly = {
+  private def genMainClass(classDecl: MainClass, symTable: SymbolTable): JVMClass = {
     val classTable = symTable(classDecl.name.name)
     val methodTable = classTable.methods("main")
     val context = Context(symTable, Some(classTable), Some(methodTable))
 
-    ClassAssembly(
+    JVMClass(
       className = classDecl.name.name,
       superClass = "java/lang/Object",
       fields = Seq(),
-      methods = Seq(MethodAssembly(
+      methods = Seq(JVMMethod(
         name = "main",
         typeDesc = typeDescriptor(VoidType()),
         maxStack = StackDepthCalculator.maxStackDepth(classDecl.stmts) + 1,
@@ -41,11 +41,11 @@ object CodeGenerator {
     )
   }
 
-  private def genClass(classDecl: ClassDecl, symTable: SymbolTable): ClassAssembly = {
+  private def genClass(classDecl: ClassDecl, symTable: SymbolTable): JVMClass = {
     val classTable = symTable(classDecl.name.name)
     val context = Context(symTable, Some(classTable), None)
 
-    ClassAssembly(
+    JVMClass(
       className = classDecl.name.name,
       superClass = "java/lang/Object",
       fields = classDecl.varDecls.map(genField),
@@ -53,14 +53,14 @@ object CodeGenerator {
     )
   }
 
-  private def genField(varDecl: VarDecl) : FieldAssembly =
-    FieldAssembly(varDecl.name.name, typeDescriptor(typeOfNode(varDecl.typeName)))
+  private def genField(varDecl: VarDecl) : JVMField =
+    JVMField(varDecl.name.name, typeDescriptor(typeOfNode(varDecl.typeName)))
 
-  private def genMethod(method: MethodDecl, context: Context): MethodAssembly = {
+  private def genMethod(method: MethodDecl, context: Context): JVMMethod = {
     val methodTable = context.symTable(context.currentClass).methods(method.name.name)
     val c = context.copy(currentMethod = Some(methodTable))
 
-    MethodAssembly(
+    JVMMethod(
       name = method.name.name,
       typeDesc = typeDescriptor(typeOfNode(method.typeName)),
       maxStack = StackDepthCalculator.maxStackDepth(method.stmts) + 1,
@@ -83,7 +83,7 @@ object CodeGenerator {
   private def genAll(nodes: Seq[SyntaxTreeNode], c: Context)(label: Int): CodegenContext =
     nodes.map(n => gen(n, c)(_)).foldLeft(asm(label)) { _ >>> _ }
 
-  private def genBinaryOp(binOp: BinaryOp, instruction: AssemblyInstruction, c: Context)(label: Int) =
+  private def genBinaryOp(binOp: BinaryOp, instruction: JVMInstruction, c: Context)(label: Int) =
     asm(label) >>> gen(binOp.leftOp, c) >>> gen(binOp.rightOp, c) >> instruction
 
   private def genComparisonOp(binOp: BinaryOp, compareInstr: Int => InstructionWithLabel, c: Context)(label: Int) = {

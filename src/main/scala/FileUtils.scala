@@ -4,6 +4,9 @@ import scala.language.reflectiveCalls
 import scala.io.Source
 
 object FileUtils {
+
+  case class FileOutput(filename: String, content: Array[Byte])
+
   def readFile(filename: String) =
     using(Source.fromFile(filename)) { _.mkString }
 

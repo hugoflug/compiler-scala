@@ -1,4 +1,5 @@
 import Assembler.ClassFile
+import FileUtils.FileOutput
 
 object Compiler {
   trait CompilationError {
@@ -18,7 +19,7 @@ object Compiler {
       case Right(_) =>
     }
 
-  def compileToFiles(program: String, sourceFile: String, outDir: String): Either[CompilationError, Seq[ClassFile]] =
+  def compileToFiles(program: String, sourceFile: String, outDir: String): Either[CompilationError, Seq[FileOutput]] =
     compile(program, sourceFile) match {
       case Left(error) => Left(error)
       case Right(assemblies) =>
@@ -26,12 +27,12 @@ object Compiler {
         Right(assemblies)
     }
 
-  def compile(program: String, sourceFile: String): Either[CompilationError, Seq[ClassFile]] =
+  def compile(program: String, sourceFile: String): Either[CompilationError, Seq[FileOutput]] =
     for {
       syntaxTree <- Parser.parse(program)
       symTable <- SymbolTableCreator.create(syntaxTree)
       _ <- TypeChecker.typeCheck(syntaxTree, symTable)
-      classAssemblies = CodeGenerator.generate(syntaxTree, symTable)
-      classFiles = classAssemblies.map(Assembler.assemble)
+      jvmClasses = CodeGenerator.generate(syntaxTree, symTable)
+      classFiles = jvmClasses.map(Assembler.assemble)
     } yield classFiles
 }

@@ -1,5 +1,5 @@
 object ConstantPoolUtil {
-  trait ConstantPoolEntry {
+  sealed trait ConstantPoolEntry {
     def index: Int
     def ref: ConstantPoolRef
   }
@@ -10,7 +10,7 @@ object ConstantPoolUtil {
   case class FieldEntry(ref: FieldRef, index: Int, classIndex: Int, nameAndTypeIndex: Int) extends ConstantPoolEntry
   case class NatEntry(ref: NatRef, index: Int, nameIndex: Int, typeIndex: Int) extends ConstantPoolEntry
 
-  trait ConstantPoolRef
+  sealed trait ConstantPoolRef
   case class ClassRef(name: String) extends ConstantPoolRef
   case class StringRef(value: String) extends ConstantPoolRef
   case class IntRef(value: Int) extends ConstantPoolRef
@@ -18,10 +18,10 @@ object ConstantPoolUtil {
   case class MethodRef(clazz: String, name: String, typeDesc: String) extends ConstantPoolRef
   case class FieldRef(clazz: String, name: String, typeDesc: String) extends ConstantPoolRef
 
-  def constantPoolEntries(clazz: ClassAssembly): Set[ConstantPoolEntry] =
+  def constantPoolEntries(clazz: JVMClass): Set[ConstantPoolEntry] =
     constantPoolEntries(constantPoolRefs(clazz))
 
-  private def constantPoolRefs(clazz: ClassAssembly): Set[ConstantPoolRef] = ???
+  private def constantPoolRefs(clazz: JVMClass): Set[ConstantPoolRef] = ???
 
   private def createFieldEntry(ref: FieldRef, index: Int, classEntries: Set[ClassEntry],
                        natEntries: Set[NatEntry]): FieldEntry = {
@@ -59,7 +59,8 @@ object ConstantPoolUtil {
       fieldRefs.map(r => StringRef(r.typeDesc)) ++
       methodRefs.map(r => StringRef(r.clazz)) ++
       methodRefs.map(r => StringRef(r.name)) ++
-      methodRefs.map(r => StringRef(r.typeDesc))
+      methodRefs.map(r => StringRef(r.typeDesc)) +
+      StringRef("Code")
     val stringEntries = strings.zipWithIndex
       .map(a => (a._1, a._2 + startIndex1))
       .map({ case (ref, index) => StringEntry(ref, index) })

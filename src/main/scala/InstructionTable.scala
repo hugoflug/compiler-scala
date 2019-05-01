@@ -3,7 +3,7 @@ import ByteUtils._
 
 object InstructionTable {
 
-  def mkBytes(instructions: Seq[AssemblyInstruction], cpIndex: Map[ConstantPoolRef, Int]) = {
+  def mkBytes(instructions: Seq[JVMInstruction], cpIndex: Map[ConstantPoolRef, Int]) = {
     val labelByteOffsets = labelOffsets(instructions)
 
     val (bytes, _) = instructions.foldLeft((Array[Byte](), 0)) {
@@ -15,11 +15,11 @@ object InstructionTable {
     bytes
   }
 
-  private def mkBytes(instruction: AssemblyInstruction, cpIndex: Map[ConstantPoolRef, Int], offset: Int,
+  private def mkBytes(instruction: JVMInstruction, cpIndex: Map[ConstantPoolRef, Int], offset: Int,
                       labelOffsets: Map[Int, Int]): Array[Byte] =
     instructionCode(instruction) ++ extraBytes(instruction, cpIndex, offset, labelOffsets)
 
-  private def extraBytes(instruction: AssemblyInstruction, cpIndex: Map[ConstantPoolRef, Int], offset: Int,
+  private def extraBytes(instruction: JVMInstruction, cpIndex: Map[ConstantPoolRef, Int], offset: Int,
                          labelOffsets: Map[Int, Int]) =
     instruction match {
       case i: InstructionWithLabel =>
@@ -46,66 +46,66 @@ object InstructionTable {
       case New(clazz) =>
         cpIndex(ClassRef(clazz)).u2
 
-      case _ => "".bytes
+      case _ => "".hex
     }
 
-  private def instructionCode(instruction: AssemblyInstruction): Array[Byte] = instruction match {
-    case _: Goto => "a7".bytes
-    case _: Ifeq => "99".bytes
-    case _: If_icmpgt => "a3".bytes
-    case _: If_icmpge => "a2".bytes
-    case _: If_icmplt => "a1".bytes
-    case _: If_icmple => "a4".bytes
-    case _: Ifne => "9a".bytes
-    case _: If_acmpeq => "a5".bytes
-    case _: If_icmpeq => "9f".bytes
-    case _: If_acmpne => "a6".bytes
-    case _: If_icmpne => "a0".bytes
-    case _: Istore => "36".bytes
-    case _: Astore => "3a".bytes
-    case _: Iload => "15".bytes
-    case _: Aload => "19".bytes
-    case _: Iconst_0 => "03".bytes
-    case _: Iconst_1 => "04".bytes
-    case _: Dup => "59".bytes
-    case _: Pop => "57".bytes
-    case _: Label => "".bytes
-    case _: Aload_0 => "2a".bytes
-    case _: Swap => "5f".bytes
-    case _: Putfield => "b5".bytes
-    case _: Return => "b1".bytes
-    case _: Ireturn => "ac".bytes
-    case _: Areturn => "b0".bytes
-    case _: Getstatic => "b2".bytes
-    case _: Invokevirtual => "b6".bytes
-    case _: LdcInt => "12".bytes
-    case _: LdcString => "12".bytes
-    case _: Iadd => "60".bytes
-    case _: Isub => "64".bytes
-    case _: Imul => "68".bytes
-    case _: Ixor => "82".bytes
-    case _: Newarray => "bc".bytes
-    case _: Invokespecial => "b7".bytes
-    case _: Arraylength => "be".bytes
-    case _: Iaload => "2e".bytes
-    case _: Iastore => "4f".bytes
-    case _: Getfield => "b4".bytes
-    case _: New => "bb".bytes
+  private def instructionCode(instruction: JVMInstruction): Array[Byte] = instruction match {
+    case _: Goto => "a7".hex
+    case _: Ifeq => "99".hex
+    case _: If_icmpgt => "a3".hex
+    case _: If_icmpge => "a2".hex
+    case _: If_icmplt => "a1".hex
+    case _: If_icmple => "a4".hex
+    case _: Ifne => "9a".hex
+    case _: If_acmpeq => "a5".hex
+    case _: If_icmpeq => "9f".hex
+    case _: If_acmpne => "a6".hex
+    case _: If_icmpne => "a0".hex
+    case _: Istore => "36".hex
+    case _: Astore => "3a".hex
+    case _: Iload => "15".hex
+    case _: Aload => "19".hex
+    case _: Iconst_0 => "03".hex
+    case _: Iconst_1 => "04".hex
+    case _: Dup => "59".hex
+    case _: Pop => "57".hex
+    case _: Label => "".hex
+    case _: Aload_0 => "2a".hex
+    case _: Swap => "5f".hex
+    case _: Putfield => "b5".hex
+    case _: Return => "b1".hex
+    case _: Ireturn => "ac".hex
+    case _: Areturn => "b0".hex
+    case _: Getstatic => "b2".hex
+    case _: Invokevirtual => "b6".hex
+    case _: LdcInt => "12".hex
+    case _: LdcString => "12".hex
+    case _: Iadd => "60".hex
+    case _: Isub => "64".hex
+    case _: Imul => "68".hex
+    case _: Ixor => "82".hex
+    case _: Newarray => "bc".hex
+    case _: Invokespecial => "b7".hex
+    case _: Arraylength => "be".hex
+    case _: Iaload => "2e".hex
+    case _: Iastore => "4f".hex
+    case _: Getfield => "b4".hex
+    case _: New => "bb".hex
   }
 
-  private def labelOffsets(instructions: Seq[AssemblyInstruction]): Map[Int, Int] = {
+  private def labelOffsets(instructions: Seq[JVMInstruction]): Map[Int, Int] = {
     val (labelOffsetMap, _) = instructions.foldLeft((Map[Int, Int](), 0)) {
       case ((offsetMap, offset), instruction) =>
         instruction match {
           case Label(id) => (offsetMap + (id -> offset), offset)
-          case instr: AssemblyInstruction => (offsetMap, offset + instructionSize(instr))
+          case instr: JVMInstruction => (offsetMap, offset + instructionSize(instr))
         }
     }
 
     labelOffsetMap
   }
 
-  private def instructionSize(instruction: AssemblyInstruction) = instruction match {
+  private def instructionSize(instruction: JVMInstruction) = instruction match {
       case _: InstructionWithLabel => 3
       case _: InstructionWithVarNo => 2
       case _: Iconst_0 => 1
