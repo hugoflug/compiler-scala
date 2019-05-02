@@ -23,7 +23,7 @@ object Assembler {
       methodTable(clazz.methods, cpIndex) ++
       attributesTable
 
-    ClassFile(clazz.className + ".class", content)
+    FileOutput(clazz.className + ".class", content)
   }
   
   private type ConstantPoolIndex = Map[ConstantPoolRef, Int]

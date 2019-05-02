@@ -25,6 +25,8 @@ object ErrorFormatter {
         s"Parse error: multidimensional arrays not allowed"
       case IntSizeError(size, _) =>
         s"Number size error: $size is too large for an int"
+      case otherError =>
+        otherError.toString
     }
 
   private def formatSourcePos(index: Int, program: String) = {

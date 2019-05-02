@@ -8,14 +8,14 @@ object InstructionTable {
 
     val (bytes, _) = instructions.foldLeft((Array[Byte](), 0)) {
       case ((cBytes, offset), instruction) =>
-        val instrBytes = mkBytes(instruction, cpIndex, offset, labelByteOffsets)
+        val instrBytes = mkBytes1(instruction, cpIndex, offset, labelByteOffsets)
         (cBytes ++ instrBytes, offset + instructionSize(instruction))
     }
 
     bytes
   }
 
-  private def mkBytes(instruction: JVMInstruction, cpIndex: Map[ConstantPoolRef, Int], offset: Int,
+  private def mkBytes1(instruction: JVMInstruction, cpIndex: Map[ConstantPoolRef, Int], offset: Int,
                       labelOffsets: Map[Int, Int]): Array[Byte] =
     instructionCode(instruction) ++ extraBytes(instruction, cpIndex, offset, labelOffsets)
 

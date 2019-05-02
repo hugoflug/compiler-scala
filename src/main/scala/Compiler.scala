@@ -1,4 +1,3 @@
-import Assembler.ClassFile
 import FileUtils.FileOutput
 
 object Compiler {
@@ -14,20 +13,20 @@ object Compiler {
     compileWithErrorMsgs(FileUtils.readFile(filename), filename, outDir)
 
   def compileWithErrorMsgs(program: String, sourceFile: String, outDir: String): Unit =
-    compileToFiles(program, sourceFile, outDir) match {
+    compileToFiles(program, outDir) match {
       case Left(error) => println(ErrorFormatter.format(error, program, sourceFile))
       case Right(_) =>
     }
 
-  def compileToFiles(program: String, sourceFile: String, outDir: String): Either[CompilationError, Seq[FileOutput]] =
-    compile(program, sourceFile) match {
+  def compileToFiles(program: String, outDir: String): Either[CompilationError, Seq[FileOutput]] =
+    compile(program) match {
       case Left(error) => Left(error)
       case Right(assemblies) =>
         assemblies.foreach(a => FileUtils.writeFile(outDir + "/" + a.filename + ".class", a.content))
         Right(assemblies)
     }
 
-  def compile(program: String, sourceFile: String): Either[CompilationError, Seq[FileOutput]] =
+  def compile(program: String): Either[CompilationError, Seq[FileOutput]] =
     for {
       syntaxTree <- Parser.parse(program)
       symTable <- SymbolTableCreator.create(syntaxTree)

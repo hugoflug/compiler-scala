@@ -57,7 +57,7 @@ object CodeGenerator {
     JVMField(varDecl.name.name, typeDescriptor(typeOfNode(varDecl.typeName)))
 
   private def genMethod(method: MethodDecl, context: Context): JVMMethod = {
-    val methodTable = context.symTable(context.currentClass).methods(method.name.name)
+    val methodTable = context.symTable(context.currentClass.get.name).methods(method.name.name)
     val c = context.copy(currentMethod = Some(methodTable))
 
     JVMMethod(
