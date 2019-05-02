@@ -65,3 +65,4 @@ case class Aload(varNo: Int) extends InstructionWithVarNo
 case class Iastore() extends JVMInstruction
 case class Getfield(clazz: String, name: String, typeDesc: String) extends InstructionWithFieldRef
 case class New(clazz: String) extends JVMInstruction
+case class Nop() extends JVMInstruction

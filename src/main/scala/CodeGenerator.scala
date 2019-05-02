@@ -36,7 +36,7 @@ object CodeGenerator {
         typeDesc = methodTypeDescriptor(Seq(), VoidType()),
         maxStack = StackDepthCalculator.maxStackDepth(classDecl.stmts) + 1,
         maxLocals = methodTable.params.size + methodTable.locals.size + 1,
-        code = genAll(classDecl.stmts, context)(0).instructions
+        code = genAll(classDecl.stmts, context)(0).instructions ++ Seq(Nop())
       ))
     )
   }
@@ -65,7 +65,7 @@ object CodeGenerator {
       typeDesc = methodTypeDescriptor(method.argList.map(arg => typeOfNode(arg.typeName)), typeOfNode(method.typeName)),
       maxStack = StackDepthCalculator.maxStackDepth(method.stmts) + 1,
       maxLocals = methodTable.params.size + methodTable.locals.size + 1,
-      code = genAll(method.stmts, c)(0).instructions
+      code = genAll(method.stmts, c)(0).instructions ++ Seq(Nop())
     )
   }
 
