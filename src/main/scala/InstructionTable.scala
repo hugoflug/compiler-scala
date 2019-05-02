@@ -35,10 +35,10 @@ object InstructionTable {
         cpIndex(MethodRef(i.clazz, i.name, i.typeDesc)).u2
 
       case LdcInt(value) =>
-        cpIndex(IntRef(value)).u2
+        cpIndex(IntRef(value)).u1
 
       case LdcString(s) =>
-        cpIndex(StringRef(s)).u2
+        cpIndex(StringRef(s)).u1
 
       case New_array(type_) =>
         type_.u1
@@ -91,6 +91,7 @@ object InstructionTable {
     case _: Iastore => "4f".hex
     case _: Getfield => "b4".hex
     case _: New => "bb".hex
+    case _: Nop => "00".hex
   }
 
   private def labelOffsets(instructions: Seq[JVMInstruction]): Map[Int, Int] = {
@@ -113,8 +114,8 @@ object InstructionTable {
       case _: Dup => 1
       case _: Pop => 1
       case _: Label => 0
-      case _: Aload_0 => 0
-      case _: Swap => 0
+      case _: Aload_0 => 1
+      case _: Swap => 1
       case _: Putfield => 3
       case _: Return => 1
       case _: Ireturn => 1
@@ -134,5 +135,6 @@ object InstructionTable {
       case _: Iastore => 1
       case _: Getfield => 3
       case _: New => 3
+      case _: Nop => 1
     }
 }
