@@ -37,14 +37,8 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
 
   private def executeTest(program: String, mainClass: String, sourceFile: String)(testFn: (Int, String, String) => Unit): Unit = {
     val outDir = Files.createTempDirectory("compiler-scala").toString
-    val result = Compiler.compileToFiles(program, sourceFile, outDir)
+    val result = Compiler.compileToFiles(program, outDir)
     result should matchPattern { case Right(_) => } withClue clue(result, program, sourceFile)
-
-    val classes = result.right.get.map(_.className)
-    val jasminFiles = classes.map(c => s"$outDir/$c.jasmin").mkString(" ")
-
-    val (_, _, stdErr) = run(s"java -jar jasmin.jar $jasminFiles -d $outDir", resourceDir)
-    stdErr shouldBe empty
 
     val (errCode, stdOut, stdErr2) = run(s"java $mainClass", outDir)
     testFn(errCode, stdOut, stdErr2)
@@ -78,12 +72,12 @@ class IntegrationTest extends org.scalatest.FunSuite with Matchers with Appended
     }
 
   forAllFiles("compile") { (program, file) =>
-    val result = Compiler.compile(program, file.getName)
+    val result = Compiler.compile(program)
     result should matchPattern { case Right(_) => } withClue clue(result, program, file.getName)
   }
 
   forAllFiles("noncompile") { (program, file) =>
-    Compiler.compile(program, file.getName) should matchPattern { case Left(_) => }
+    Compiler.compile(program) should matchPattern { case Left(_) => }
   }
 
   executeAllFiles("execute") {

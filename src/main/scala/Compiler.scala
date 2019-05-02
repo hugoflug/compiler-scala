@@ -21,9 +21,9 @@ object Compiler {
   def compileToFiles(program: String, outDir: String): Either[CompilationError, Seq[FileOutput]] =
     compile(program) match {
       case Left(error) => Left(error)
-      case Right(assemblies) =>
-        assemblies.foreach(a => FileUtils.writeFile(outDir + "/" + a.filename + ".class", a.content))
-        Right(assemblies)
+      case Right(classes) =>
+        classes.foreach(a => FileUtils.writeFile(outDir + "/" + a.filename, a.content))
+        Right(classes)
     }
 
   def compile(program: String): Either[CompilationError, Seq[FileOutput]] =

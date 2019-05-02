@@ -40,7 +40,7 @@ object InstructionTable {
       case LdcString(s) =>
         cpIndex(StringRef(s)).u2
 
-      case Newarray(type_) =>
+      case New_array(type_) =>
         type_.u1
 
       case New(clazz) =>
@@ -84,9 +84,9 @@ object InstructionTable {
     case _: Isub => "64".hex
     case _: Imul => "68".hex
     case _: Ixor => "82".hex
-    case _: Newarray => "bc".hex
+    case _: New_array => "bc".hex
     case _: Invokespecial => "b7".hex
-    case _: Arraylength => "be".hex
+    case _: Array_length => "be".hex
     case _: Iaload => "2e".hex
     case _: Iastore => "4f".hex
     case _: Getfield => "b4".hex
@@ -127,9 +127,9 @@ object InstructionTable {
       case _: Isub => 1
       case _: Imul => 1
       case _: Ixor => 1
-      case _: Newarray => 2
+      case _: New_array => 2
       case _: Invokespecial => 3
-      case _: Arraylength => 1
+      case _: Array_length => 1
       case _: Iaload => 1
       case _: Iastore => 1
       case _: Getfield => 3

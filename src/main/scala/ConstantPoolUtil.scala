@@ -21,10 +21,10 @@ object ConstantPoolUtil {
   def constantPoolEntries(clazz: JVMClass): Set[ConstantPoolEntry] =
     constantPoolEntries(constantPoolRefs(clazz))
 
-  private def constantPoolRefs(clazz: JVMClass): Set[ConstantPoolRef] =
+  /*private*/ def constantPoolRefs(clazz: JVMClass): Set[ConstantPoolRef] =
     Set[ConstantPoolRef]() +
-    StringRef(clazz.className) +
-    StringRef(clazz.superClass) ++
+    ClassRef(clazz.className) +
+    ClassRef(clazz.superClass) ++
     clazz.fields.map(f => FieldRef(clazz.className, f.name, f.typeDesc)).toSet ++
     clazz.methods.map(m => MethodRef(clazz.className, m.name, m.typeDesc)).toSet ++
     clazz.methods.flatMap(m => codeConstantPoolRefs(m.code))
@@ -67,7 +67,7 @@ object ConstantPoolUtil {
     NatEntry(ref, index, stringEntries.find(_.ref.value == ref.name).get.index,
       stringEntries.find(_.ref.value == ref.typeDesc).get.index)
 
-  private def constantPoolEntries(refs: Set[ConstantPoolRef]): Set[ConstantPoolEntry] = {
+  /*private*/ def constantPoolEntries(refs: Set[ConstantPoolRef]): Set[ConstantPoolEntry] = {
     val intRefs = refs.collect({ case i: IntRef => i })
     val stringRefs = refs.collect({ case i: StringRef => i })
     val classRefs = refs.collect({ case i: ClassRef => i })
@@ -75,8 +75,8 @@ object ConstantPoolUtil {
     val methodRefs = refs.collect({ case i: MethodRef => i })
 
     val intEntries = intRefs.zipWithIndex
-      .map({ case(ref, index) => IntEntry(ref, index) })
-    val startIndex1 = intEntries.size
+      .map({ case(ref, index) => IntEntry(ref, index + 1) })
+    val startIndex1 = intEntries.size + 1
 
     val strings = stringRefs ++
       classRefs.map(r => StringRef(r.name)) ++
@@ -92,7 +92,10 @@ object ConstantPoolUtil {
       .map({ case (ref, index) => StringEntry(ref, index) })
     val startIndex2 = startIndex1 + stringEntries.size
 
-    val classEntries = classRefs.zipWithIndex
+    val classes = classRefs ++
+      fieldRefs.map(r => ClassRef(r.clazz)) ++
+      methodRefs.map(r => ClassRef(r.clazz))
+    val classEntries = classes.zipWithIndex
       .map(a => (a._1, a._2 + startIndex2))
       .map({ case (ref, index) => ClassEntry(ref, index, stringEntries.find(_.ref.value == ref.name).get.index) })
     val startIndex3 = startIndex2 + classEntries.size

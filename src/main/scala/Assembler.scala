@@ -15,9 +15,9 @@ object Assembler {
       minorVersion ++
       majorVersion ++
       constantPool(cpEntryList) ++
+      accessFlags ++
       classInfo(clazz.className, cpIndex) ++
       classInfo(clazz.superClass, cpIndex) ++
-      accessFlags ++
       interfaceTable ++
       fieldTable(clazz.fields, cpIndex) ++
       methodTable(clazz.methods, cpIndex) ++
@@ -29,11 +29,12 @@ object Assembler {
   private type ConstantPoolIndex = Map[ConstantPoolRef, Int]
 
   private def magicNumber = "CAFEBABE".hex
-  private def minorVersion = 0.u2 ++ 3.u2
-  private def majorVersion = 0.u2 ++ 45.u2
+  private def minorVersion = 3.u2
+  private def majorVersion = 45.u2
 
   /* https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.4 */
   private def constantPool(entries: Seq[ConstantPoolEntry]) =
+    (entries.length + 1).u2 ++
     entries.toArray.flatMap(constantPoolEntry)
 
   private def constantPoolEntry(entry: ConstantPoolEntry) =

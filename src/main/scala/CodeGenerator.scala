@@ -33,7 +33,7 @@ object CodeGenerator {
       fields = Seq(),
       methods = Seq(JVMMethod(
         name = "main",
-        typeDesc = typeDescriptor(VoidType()),
+        typeDesc = methodTypeDescriptor(Seq(), VoidType()),
         maxStack = StackDepthCalculator.maxStackDepth(classDecl.stmts) + 1,
         maxLocals = methodTable.params.size + methodTable.locals.size + 1,
         code = genAll(classDecl.stmts, context)(0).instructions
@@ -62,7 +62,7 @@ object CodeGenerator {
 
     JVMMethod(
       name = method.name.name,
-      typeDesc = typeDescriptor(typeOfNode(method.typeName)),
+      typeDesc = methodTypeDescriptor(method.argList.map(arg => typeOfNode(arg.typeName)), typeOfNode(method.typeName)),
       maxStack = StackDepthCalculator.maxStackDepth(method.stmts) + 1,
       maxLocals = methodTable.params.size + methodTable.locals.size + 1,
       code = genAll(method.stmts, c)(0).instructions
@@ -221,13 +221,13 @@ object CodeGenerator {
         asm(label) >>> gen(e, c) >> Iconst_1() >> Ixor()
 
       case NewArray(arraySize, _) =>
-        asm(label) >>> gen(arraySize, c) >> Newarray(10)
+        asm(label) >>> gen(arraySize, c) >> New_array(10)
 
       case NewObject(Identifier(typeName, _), _) =>
         asm(label) >> New(typeName) >> Dup() >> Invokespecial(typeName, "<init>", "()V")
 
       case ArrayLength(array, _) =>
-        asm(label) >>> gen(array, c) >> Arraylength()
+        asm(label) >>> gen(array, c) >> Array_length()
 
       case ArrayLookup(array, index, _) =>
         asm(label) >>> gen(array, c) >>> gen(index, c) >> Iaload()

@@ -51,9 +51,9 @@ case class If_icmplt(label: Int) extends InstructionWithLabel
 case class If_icmple(label: Int) extends InstructionWithLabel
 case class Imul() extends JVMInstruction
 case class Ixor() extends JVMInstruction
-case class Newarray(type_ : Int) extends JVMInstruction
+case class New_array(type_ : Int) extends JVMInstruction
 case class Invokespecial(clazz: String, name: String, typeDesc: String) extends InstructionWithMethodRef
-case class Arraylength() extends JVMInstruction
+case class Array_length() extends JVMInstruction
 case class Iaload() extends JVMInstruction
 case class Ifne(label: Int) extends InstructionWithLabel
 case class If_acmpeq(label: Int) extends InstructionWithLabel
