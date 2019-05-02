@@ -21,7 +21,33 @@ object ConstantPoolUtil {
   def constantPoolEntries(clazz: JVMClass): Set[ConstantPoolEntry] =
     constantPoolEntries(constantPoolRefs(clazz))
 
-  private def constantPoolRefs(clazz: JVMClass): Set[ConstantPoolRef] = ???
+  private def constantPoolRefs(clazz: JVMClass): Set[ConstantPoolRef] =
+    Set[ConstantPoolRef]() +
+    StringRef(clazz.className) +
+    StringRef(clazz.superClass) ++
+    clazz.fields.map(f => FieldRef(clazz.className, f.name, f.typeDesc)).toSet ++
+    clazz.methods.map(m => MethodRef(clazz.className, m.name, m.typeDesc)).toSet ++
+    clazz.methods.flatMap(m => codeConstantPoolRefs(m.code))
+
+  private def codeConstantPoolRefs(instructions: Seq[JVMInstruction]): Set[ConstantPoolRef] =
+    instructions.map(constantPoolRef).filter(_.isDefined).map(_.get).toSet
+
+  private def constantPoolRef(instruction: JVMInstruction): Option[ConstantPoolRef] =
+    instruction match {
+      case instr: InstructionWithFieldRef =>
+        Some(FieldRef(instr.clazz, instr.name, instr.typeDesc))
+      case instr: InstructionWithMethodRef =>
+        Some(MethodRef(instr.clazz, instr.name, instr.typeDesc))
+      case LdcInt(value) =>
+        Some(IntRef(value))
+      case LdcString(s) =>
+        Some(StringRef(s))
+      case New(clazz) =>
+        Some(ClassRef(clazz))
+      case _ =>
+        None
+    }
+
 
   private def createFieldEntry(ref: FieldRef, index: Int, classEntries: Set[ClassEntry],
                        natEntries: Set[NatEntry]): FieldEntry = {
