@@ -5,6 +5,8 @@ import ByteUtils._
 import FileUtils.FileOutput
 
 object Assembler {
+  case class AssemblerDebugInfo(className: String, constantPoolEntries: Seq[ConstantPoolEntry])
+
   def assemble(clazz: JVMClass): FileOutput = {
     val cp = ConstantPoolUtil.constantPoolEntries(clazz)
     val cpIndex = cp.map(e => (e.ref, e.index)).toMap
@@ -25,6 +27,12 @@ object Assembler {
 
     FileOutput(clazz.className + ".class", content)
   }
+
+  def debugInfo(clazz: JVMClass): AssemblerDebugInfo = {
+    val cp = ConstantPoolUtil.constantPoolEntries(clazz)
+    val cpEntryList = cp.toList.sortBy(_.index)
+    AssemblerDebugInfo(clazz.className, cpEntryList)
+  }
   
   private type ConstantPoolIndex = Map[ConstantPoolRef, Int]
 
@@ -39,7 +47,10 @@ object Assembler {
 
   private def constantPoolEntry(entry: ConstantPoolEntry) =
     entry match {
-      case StringEntry(StringRef(s), _) => 1.u1 ++ s.length.u2 ++ s.getBytes(StandardCharsets.UTF_8)
+      case Utf8Entry(Utf8Ref(s), _) =>
+        val bytes = s.getBytes(StandardCharsets.UTF_8)
+        1.u1 ++ bytes.length.u2 ++ bytes
+      case StringEntry(_, _, utf8Index) => 8.u1 ++ utf8Index.u2
       case IntEntry(IntRef(i), _) => 3.u1 ++ i.s4
       case ClassEntry(_, _, nameIndex) => 7.u1 ++ nameIndex.u2
       case FieldEntry(_, _, classIndex, natIndex) => 9.u1 ++ classIndex.u2 ++ natIndex.u2
@@ -52,6 +63,7 @@ object Assembler {
 
   private def accessFlags = publicAccess
   private def publicAccess = "0001".hex
+  private def publicStaticAccess = "0009".hex
 
   private def interfaceTable = interfaceTableLength
   private def interfaceTableLength = 0.u2
@@ -63,8 +75,8 @@ object Assembler {
   /* https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.5 */
   private def fieldInfo(field: JVMField, cpIndex: ConstantPoolIndex) =
     publicAccess ++
-    cpIndex(StringRef(field.name)).u2 ++
-    cpIndex(StringRef(field.typeDesc)).u2 ++
+    cpIndex(Utf8Ref(field.name)).u2 ++
+    cpIndex(Utf8Ref(field.typeDesc)).u2 ++
     fieldAttributes
 
   private def fieldAttributes = fieldAttributesLength
@@ -76,10 +88,14 @@ object Assembler {
 
   /* https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.6 */
   private def methodInfo(method: JVMMethod, cpIndex: ConstantPoolIndex) =
-    publicAccess ++
-    cpIndex(StringRef(method.name)).u2 ++
-    cpIndex(StringRef(method.typeDesc)).u2 ++
+    methodAccess(method) ++
+    cpIndex(Utf8Ref(method.name)).u2 ++
+    cpIndex(Utf8Ref(method.typeDesc)).u2 ++
     methodAttributes(method, cpIndex)
+
+  private def methodAccess(method: JVMMethod) =
+    if (method.static) publicStaticAccess
+    else publicAccess
 
   private def methodAttributes(method: JVMMethod, cpIndex: ConstantPoolIndex) =
     methodAttributesLength ++
@@ -91,7 +107,7 @@ object Assembler {
   private def methodCodeAttribute(method: JVMMethod, cpIndex: ConstantPoolIndex) = {
     val body = methodCodeAttributeBody(method, cpIndex)
 
-    cpIndex(StringRef("Code")).u2 ++
+    cpIndex(Utf8Ref("Code")).u2 ++
     body.length.u4 ++
     body
   }

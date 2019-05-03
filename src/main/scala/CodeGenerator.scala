@@ -33,7 +33,8 @@ object CodeGenerator {
       fields = Seq(),
       methods = Seq(JVMMethod(
         name = "main",
-        typeDesc = methodTypeDescriptor(Seq(), VoidType()),
+        typeDesc = mainMethodTypeDescriptor,
+        static = true,
         maxStack = StackDepthCalculator.maxStackDepth(classDecl.stmts) + 1,
         maxLocals = methodTable.params.size + methodTable.locals.size + 1,
         code = genAll(classDecl.stmts, context)(0).instructions ++ Seq(Return())
@@ -49,20 +50,21 @@ object CodeGenerator {
       className = classDecl.name.name,
       superClass = "java/lang/Object",
       fields = classDecl.varDecls.map(genField),
-      methods = classDecl.methodDecls.map(genMethod(_, context))
+      methods = classDecl.methodDecls.map(genMethod(_, static = false, context))
     )
   }
 
   private def genField(varDecl: VarDecl) : JVMField =
     JVMField(varDecl.name.name, typeDescriptor(typeOfNode(varDecl.typeName)))
 
-  private def genMethod(method: MethodDecl, context: Context): JVMMethod = {
+  private def genMethod(method: MethodDecl, static: Boolean, context: Context): JVMMethod = {
     val methodTable = context.symTable(context.currentClass.get.name).methods(method.name.name)
     val c = context.copy(currentMethod = Some(methodTable))
 
     JVMMethod(
       name = method.name.name,
       typeDesc = methodTypeDescriptor(method.argList.map(arg => typeOfNode(arg.typeName)), typeOfNode(method.typeName)),
+      static = static,
       maxStack = StackDepthCalculator.maxStackDepth(method.stmts) + 1,
       maxLocals = methodTable.params.size + methodTable.locals.size + 1,
       code = genAll(method.stmts, c)(0).instructions
@@ -79,6 +81,8 @@ object CodeGenerator {
 
   private def methodTypeDescriptor(types: Seq[Type], returnType: Type): String =
     "(" + types.map(typeDescriptor).mkString + ")" + typeDescriptor(returnType)
+
+  private def mainMethodTypeDescriptor = "([Ljava/lang/String;)V"
 
   private def genAll(nodes: Seq[SyntaxTreeNode], c: Context)(label: Int): CodegenContext =
     nodes.map(n => gen(n, c)(_)).foldLeft(asm(label)) { _ >>> _ }
@@ -153,7 +157,7 @@ object CodeGenerator {
       case Syso(printee, _) =>
         val printeeType = TypeChecker.getType(printee, c)
         asm(label) >>
-          Getstatic("System", "out", "Ljava/io/PrintStream;") >>>
+          Getstatic("java/lang/System", "out", "Ljava/io/PrintStream;") >>>
           gen(printee, c) >>>
           (label =>
             printeeType match {
@@ -170,7 +174,7 @@ object CodeGenerator {
                   Label(falze) >>
                   LdcString("false") >>
                   Label(after) >>
-                  Invokevirtual("java/io/PrintStream", "invokevirtual", "(Ljava/lang/String;)V")
+                  Invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V")
             })
 
       case If(condition, thenStmt, elseStmt, _) =>

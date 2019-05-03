@@ -1,5 +1,6 @@
 case class JVMClass(className: String, superClass: String, fields: Seq[JVMField], methods: Seq[JVMMethod])
-case class JVMMethod(name: String, typeDesc: String, maxStack: Int, maxLocals: Int, code: Seq[JVMInstruction])
+case class JVMMethod(name: String, typeDesc: String, static: Boolean, maxStack: Int, maxLocals: Int,
+                     code: Seq[JVMInstruction])
 case class JVMField(name: String, typeDesc: String)
 
 sealed trait JVMInstruction

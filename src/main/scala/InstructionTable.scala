@@ -1,4 +1,4 @@
-import ConstantPoolUtil.{ClassRef, ConstantPoolRef, FieldRef, IntRef, MethodRef, StringRef}
+import ConstantPoolUtil.{ClassRef, ConstantPoolRef, FieldRef, IntRef, MethodRef, StringRef, Utf8Ref}
 import ByteUtils._
 
 object InstructionTable {

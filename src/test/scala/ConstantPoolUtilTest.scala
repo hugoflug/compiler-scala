@@ -1,4 +1,4 @@
-import ConstantPoolUtil.{ClassRef, FieldRef, IntRef, MethodRef, StringRef}
+import ConstantPoolUtil.{ClassRef, FieldRef, IntRef, MethodRef, Utf8Ref}
 import org.scalatest.{FunSuite, Matchers}
 
 class ConstantPoolUtilTest extends FunSuite with Matchers {
@@ -26,7 +26,7 @@ class ConstantPoolUtilTest extends FunSuite with Matchers {
 
     val refs = ConstantPoolUtil.constantPoolRefs(classes.right.get.head)
     refs shouldBe Set(ClassRef("While"), ClassRef("java/lang/Object"),
-      IntRef(0), IntRef(1), IntRef(5), MethodRef("While", "main", "V"), MethodRef("java/io/PrintStream", "println" , "(I)V"),
+      IntRef(0), IntRef(1), IntRef(5), MethodRef("While", "main", "()V"), MethodRef("java/io/PrintStream", "println" , "(I)V"),
       FieldRef("System", "out", "Ljava/io/PrintStream;"))
 
     val entries = ConstantPoolUtil.constantPoolEntries(refs)
