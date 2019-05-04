@@ -50,9 +50,19 @@ object CodeGenerator {
       className = classDecl.name.name,
       superClass = "java/lang/Object",
       fields = classDecl.varDecls.map(genField),
-      methods = classDecl.methodDecls.map(genMethod(_, static = false, context))
+      methods = classDecl.methodDecls.map(genMethod(_, static = false, context)) :+ emptyConstructor
     )
   }
+
+  private def emptyConstructor =
+    JVMMethod(
+      name = "<init>",
+      typeDesc = "()V",
+      static = false,
+      maxStack = 1,
+      maxLocals = 1,
+      code = Seq(Aload_0(), Invokespecial("java/lang/Object", "<init>", "()V"), Return())
+    )
 
   private def genField(varDecl: VarDecl) : JVMField =
     JVMField(varDecl.name.name, typeDescriptor(typeOfNode(varDecl.typeName)))
@@ -61,13 +71,20 @@ object CodeGenerator {
     val methodTable = context.symTable(context.currentClass.get.name).methods(method.name.name)
     val c = context.copy(currentMethod = Some(methodTable))
 
+    val code = genAll(method.stmts, c)(0) >>>
+      gen(method.returnVal, c) >>
+      (method.typeName match {
+        case IntTypeNode(_) | BooleanTypeNode(_) => Ireturn()
+        case _ => Areturn()
+      })
+
     JVMMethod(
       name = method.name.name,
       typeDesc = methodTypeDescriptor(method.argList.map(arg => typeOfNode(arg.typeName)), typeOfNode(method.typeName)),
       static = static,
-      maxStack = StackDepthCalculator.maxStackDepth(method.stmts) + 1,
+      maxStack = StackDepthCalculator.maxStackDepth(method.stmts :+ method.returnVal) + 1,
       maxLocals = methodTable.params.size + methodTable.locals.size + 1,
-      code = genAll(method.stmts, c)(0).instructions
+      code = code.instructions
     )
   }
 
