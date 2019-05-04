@@ -40,9 +40,9 @@ object ConstantPoolUtil {
         Some(FieldRef(instr.clazz, instr.name, instr.typeDesc))
       case instr: InstructionWithMethodRef =>
         Some(MethodRef(instr.clazz, instr.name, instr.typeDesc))
-      case LdcInt(value) =>
+      case Ldc_wInt(value) =>
         Some(IntRef(value))
-      case LdcString(s) =>
+      case Ldc_wString(s) =>
         Some(StringRef(s))
       case New(clazz) =>
         Some(ClassRef(clazz))

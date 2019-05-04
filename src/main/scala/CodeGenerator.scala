@@ -186,10 +186,10 @@ object CodeGenerator {
                 val after = label + 1
                 asm(label + 2) >>
                   Ifeq(falze) >>
-                  LdcString("true") >>
+                  Ldc_wString("true") >>
                   Goto(after) >>
                   Label(falze) >>
-                  LdcString("false") >>
+                  Ldc_wString("false") >>
                   Label(after) >>
                   Invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V")
             })
@@ -236,7 +236,7 @@ object CodeGenerator {
         asm(label) >>> genBinaryOp(m, Imul(), c)
 
       case IntLit(value, _) =>
-        asm(label) >> LdcInt(value.toInt)
+        asm(label) >> Ldc_wInt(value.toInt)
 
       case Not(e, _) =>
         asm(label) >>> gen(e, c) >> Iconst_1() >> Ixor()

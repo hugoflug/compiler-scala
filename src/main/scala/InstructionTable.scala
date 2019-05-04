@@ -34,11 +34,11 @@ object InstructionTable {
       case i: InstructionWithMethodRef =>
         cpIndex(MethodRef(i.clazz, i.name, i.typeDesc)).u2
 
-      case LdcInt(value) =>
-        cpIndex(IntRef(value)).u1
+      case Ldc_wInt(value) =>
+        cpIndex(IntRef(value)).u2
 
-      case LdcString(s) =>
-        cpIndex(StringRef(s)).u1
+      case Ldc_wString(s) =>
+        cpIndex(StringRef(s)).u2
 
       case New_array(type_) =>
         type_.u1
@@ -78,8 +78,8 @@ object InstructionTable {
     case _: Areturn => "b0".hex
     case _: Getstatic => "b2".hex
     case _: Invokevirtual => "b6".hex
-    case _: LdcInt => "12".hex
-    case _: LdcString => "12".hex
+    case _: Ldc_wInt => "13".hex
+    case _: Ldc_wString => "13".hex
     case _: Iadd => "60".hex
     case _: Isub => "64".hex
     case _: Imul => "68".hex
@@ -122,8 +122,8 @@ object InstructionTable {
       case _: Areturn => 1
       case _: Getstatic => 3
       case _: Invokevirtual => 3
-      case _: LdcInt => 2
-      case _: LdcString => 2
+      case _: Ldc_wInt => 3
+      case _: Ldc_wString => 3
       case _: Iadd => 1
       case _: Isub => 1
       case _: Imul => 1

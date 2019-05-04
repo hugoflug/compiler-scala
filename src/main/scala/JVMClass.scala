@@ -42,8 +42,8 @@ case class Areturn() extends JVMInstruction
 case class Ifeq(label: Int) extends InstructionWithLabel
 case class Getstatic(clazz: String, name: String, typeDesc: String) extends InstructionWithFieldRef
 case class Invokevirtual(clazz: String, name: String, typeDesc: String) extends InstructionWithMethodRef
-case class LdcInt(value: Int) extends JVMInstruction
-case class LdcString(s: String) extends JVMInstruction
+case class Ldc_wInt(value: Int) extends JVMInstruction
+case class Ldc_wString(s: String) extends JVMInstruction
 case class Iadd() extends JVMInstruction
 case class Isub() extends JVMInstruction
 case class If_icmpgt(label: Int) extends InstructionWithLabel
