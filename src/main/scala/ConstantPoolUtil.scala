@@ -23,7 +23,7 @@ object ConstantPoolUtil {
   def constantPoolEntries(clazz: JVMClass): Set[ConstantPoolEntry] =
     constantPoolEntries(constantPoolRefs(clazz))
 
-  /*private*/ def constantPoolRefs(clazz: JVMClass): Set[ConstantPoolRef] =
+  private def constantPoolRefs(clazz: JVMClass): Set[ConstantPoolRef] =
     Set[ConstantPoolRef]() +
     ClassRef(clazz.className) +
     ClassRef(clazz.superClass) ++

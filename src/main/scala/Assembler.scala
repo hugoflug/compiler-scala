@@ -5,8 +5,6 @@ import ByteUtils._
 import FileUtils.FileOutput
 
 object Assembler {
-  case class AssemblerDebugInfo(className: String, constantPoolEntries: Seq[ConstantPoolEntry])
-
   def assemble(clazz: JVMClass): FileOutput = {
     val cp = ConstantPoolUtil.constantPoolEntries(clazz)
     val cpIndex = cp.map(e => (e.ref, e.index)).toMap
@@ -26,12 +24,6 @@ object Assembler {
       attributesTable
 
     FileOutput(clazz.className + ".class", content)
-  }
-
-  def debugInfo(clazz: JVMClass): AssemblerDebugInfo = {
-    val cp = ConstantPoolUtil.constantPoolEntries(clazz)
-    val cpEntryList = cp.toList.sortBy(_.index)
-    AssemblerDebugInfo(clazz.className, cpEntryList)
   }
   
   private type ConstantPoolIndex = Map[ConstantPoolRef, Int]

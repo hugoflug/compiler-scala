@@ -1,14 +1,9 @@
-import Assembler.AssemblerDebugInfo
 import FileUtils.FileOutput
-import SymbolTableCreator.SymbolTable
 
 object Compiler {
   trait CompilationError {
     def index: Int
   }
-
-  case class DebugInfo(syntaxTree: Program, symTable: SymbolTable, jvmClasses: Seq[JVMClass],
-                       asmDebugInfo: Seq[AssemblerDebugInfo])
 
   def main(args: Array[String]): Unit =
     if (args.isEmpty) println("Usage: mjc <file> [<file> ...]")
@@ -39,13 +34,4 @@ object Compiler {
       jvmClasses = CodeGenerator.generate(syntaxTree, symTable)
       classFiles = jvmClasses.map(Assembler.assemble)
     } yield classFiles
-
-  def debugInfo(program: String): DebugInfo = {
-    val syntaxTree = Parser.parse(program).right.get
-    val symTable = SymbolTableCreator.create(syntaxTree).right.get
-    val jvmClasses = CodeGenerator.generate(syntaxTree, symTable)
-    val asmDebugInfo = jvmClasses.map(Assembler.debugInfo)
-
-    DebugInfo(syntaxTree, symTable, jvmClasses, asmDebugInfo)
-  }
 }
