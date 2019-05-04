@@ -1,4 +1,4 @@
-import CodeGenerator.JasminAssembly
+import FileUtils.FileOutput
 
 object Compiler {
   trait CompilationError {
@@ -13,24 +13,25 @@ object Compiler {
     compileWithErrorMsgs(FileUtils.readFile(filename), filename, outDir)
 
   def compileWithErrorMsgs(program: String, sourceFile: String, outDir: String): Unit =
-    compileToFiles(program, sourceFile, outDir) match {
+    compileToFiles(program, outDir) match {
       case Left(error) => println(ErrorFormatter.format(error, program, sourceFile))
       case Right(_) =>
     }
 
-  def compileToFiles(program: String, sourceFile: String, outDir: String): Either[CompilationError, Seq[JasminAssembly]] =
-    compile(program, sourceFile) match {
+  def compileToFiles(program: String, outDir: String): Either[CompilationError, Seq[FileOutput]] =
+    compile(program) match {
       case Left(error) => Left(error)
-      case Right(assemblies) =>
-        assemblies.foreach(a => FileUtils.writeFile(outDir + "/" + a.className + ".jasmin", a.assembly))
-        Right(assemblies)
+      case Right(classes) =>
+        classes.foreach(a => FileUtils.writeFile(outDir + "/" + a.filename, a.content))
+        Right(classes)
     }
 
-  def compile(program: String, sourceFile: String): Either[CompilationError, Seq[JasminAssembly]] =
+  def compile(program: String): Either[CompilationError, Seq[FileOutput]] =
     for {
       syntaxTree <- Parser.parse(program)
       symTable <- SymbolTableCreator.create(syntaxTree)
       _ <- TypeChecker.typeCheck(syntaxTree, symTable)
-      jasminAssembly = CodeGenerator.generate(syntaxTree, symTable, sourceFile)
-    } yield jasminAssembly
+      jvmClasses = CodeGenerator.generate(syntaxTree, symTable)
+      classFiles = jvmClasses.map(Assembler.assemble)
+    } yield classFiles
 }

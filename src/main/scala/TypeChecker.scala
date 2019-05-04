@@ -11,7 +11,8 @@ object TypeChecker {
   case class IntSizeError(size: Long, index: Int) extends TypeError
   case class MultidimArrayError(index: Int) extends TypeError
 
-  case class Context(symTable: SymbolTable, currentClass: Option[ClassTable], currentMethod: Option[MethodTable])
+  case class Context(symTable: SymbolTable, currentClass: Option[ClassTable], currentMethod: Option[MethodTable],
+                     guid: Int)
 
   sealed trait Type
   case class BooleanType() extends Type
@@ -21,7 +22,7 @@ object TypeChecker {
   case class VoidType() extends Type
 
   def typeCheck(program: Program, symTable: SymbolTable): Either[TypeError, Unit] = 
-    typeCheck(program, Context(symTable, None, None))
+    typeCheck(program, Context(symTable, None, None, 0))
 
   def getType(expr: Expr, c: Context): Type =
     typeCheck(expr, c).right.get

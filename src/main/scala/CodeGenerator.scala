@@ -1,302 +1,319 @@
 import SymbolTableCreator.{SymbolTable, Var}
 import TypeChecker.{BooleanType, Context, IntArrayType, IntType, ObjectType, Type, VoidType, typeOfNode}
 
+import scala.util.hashing.MurmurHash3
+
 object CodeGenerator {
-  case class JasminAssembly(className: String, assembly: String)
 
-  def generate(program: Program, symTable: SymbolTable, sourceFile: String): Seq[JasminAssembly] =
-    gen(program.mainClass, symTable, sourceFile) +: program.classDecls.map(gen(_, symTable, sourceFile))
+  def generate(program: Program, symTable: SymbolTable): Seq[JVMClass] =
+    genMainClass(program.mainClass, symTable) +: program.classDecls.map(genClass(_, symTable))
 
-  private case class CodegenContext(program: String, currentLabel: Int) {
-    def flatMap(f: Int => CodegenContext): CodegenContext = {
-      val result = f(currentLabel)
-      CodegenContext(program + result.program, result.currentLabel)
-    }
-
-    def map(f: Int => Int): CodegenContext =
-      CodegenContext(program, f(currentLabel))
-
-    def >>>(f: Int => CodegenContext): CodegenContext = flatMap(f)
-
-    def >>(s: String): CodegenContext = CodegenContext(program + s + "\n", currentLabel)
+  private implicit class XSeq[A](val x: Seq[A]) extends AnyVal {
+    def +++[B >: A, That](elem: B) = x :+ elem
   }
-
-  private def asm(currentLabel: Int): CodegenContext = CodegenContext("", currentLabel)
-
-  private def esc(s: String) = "'" + s + "'"
-
-  private def l(i: Int) = "l" + i
 
   private def oneOf[T](options: Option[T]*): Option[T] =
     options.find(_.isDefined).flatten
 
-  private def typeDescriptor(t: Type): String = t match {
-      case ObjectType(name) => "L" + name + ";"
-      case IntType() => "I"
-      case IntArrayType() => "[I"
-      case BooleanType() => "I"
-      case VoidType() => ""
-    }
+  private def genMainClass(classDecl: MainClass, symTable: SymbolTable): JVMClass = {
+    val classTable = symTable(classDecl.name.name)
+    val methodTable = classTable.methods("main")
+    val context = Context(symTable, Some(classTable), Some(methodTable), 0)
+    val code = genMainMethodCode(classDecl.stmts, context)
 
-  private def methodDescriptor(className: String, methodName: String, types: Seq[Type], returnType: Type) =
-    className + "/" + methodName + "(" + types.map(typeDescriptor).mkString + ")" + typeDescriptor(returnType)
-
-  private def methodDescriptor(methodName: String, formalTypes: Seq[Type], returnType: Type) =
-    methodName + "(" + formalTypes.map(typeDescriptor).mkString + ")" + typeDescriptor(returnType)
-
-  private def genAll(nodes: Seq[SyntaxTreeNode], c: Context)(label: Int): CodegenContext =
-    nodes.map(n => gen(n, c)(_)).foldLeft(asm(label)) { _ >>> _ }
-
-  private def genBinaryOp(binOp: BinaryOp, instruction: String, c: Context)(label: Int) =
-    asm(label) >>> gen(binOp.leftOp, c) >>> gen(binOp.rightOp, c) >> instruction
-
-  private def genComparisonOp(binOp: BinaryOp, compareInstr: String, c: Context)(label: Int) = {
-    val setTrue = label
-    val after = label + 1
-    asm(label + 2) >>>
-      gen(binOp.leftOp, c) >>>
-      gen(binOp.rightOp, c) >>
-      compareInstr + " " + l(setTrue) >>
-      "iconst_0" >>
-      "goto " + l(after) >>
-      l(setTrue) + ":" >>
-      "iconst_1" >>
-      l(after) + ":"
+    JVMClass(
+      className = classDecl.name.name,
+      superClass = "java/lang/Object",
+      fields = Seq(),
+      methods = Seq(JVMMethod(
+        name = "main",
+        typeDesc = mainMethodTypeDescriptor,
+        static = true,
+        maxStack = StackDepthCalculator.maxStackDepth(code, symTable) + 1,
+        maxLocals = methodTable.params.size + methodTable.locals.size + 1,
+        code = code
+      ))
+    )
   }
 
-  private def genShortCircuitOp(binOp: BinaryOp, compareInstr: String, c: Context)(label: Int) =
-    asm(label + 1) >>>
-      gen(binOp.leftOp, c) >>
-      "dup" >>
-      compareInstr + " " + l(label) >>
-      "pop" >>>
-      gen(binOp.rightOp, c) >>
-      l(label) + ":"
+  private def genClass(classDecl: ClassDecl, symTable: SymbolTable): JVMClass = {
+    val classTable = symTable(classDecl.name.name)
+    val context = Context(symTable, Some(classTable), None, 0)
 
-  private def genAssign(assignee: String, methodVar: Option[Var], c: Context)(label: Int) =
+    JVMClass(
+      className = classDecl.name.name,
+      superClass = "java/lang/Object",
+      fields = classDecl.varDecls.map(genField),
+      methods = classDecl.methodDecls.map(genMethod(_, static = false, context)) :+ emptyConstructor
+    )
+  }
+
+  private def emptyConstructor =
+    JVMMethod(
+      name = "<init>",
+      typeDesc = "()V",
+      static = false,
+      maxStack = 1,
+      maxLocals = 1,
+      code = Seq(Aload_0(), Invokespecial("java/lang/Object", "<init>", "()V"), Return())
+    )
+
+  private def genField(varDecl: VarDecl) : JVMField =
+    JVMField(varDecl.name.name, typeDescriptor(typeOfNode(varDecl.typeName)))
+
+  private def hasDuplicateLabel(nodes: Seq[JVMInstruction]): Boolean =
+    nodes.collect({ case Label(id) => id }).groupBy(identity).exists(_._2.length > 1)
+
+  private def genMainMethodCode(stmts: Seq[Stmt], c: Context): Seq[JVMInstruction] = {
+    val code = genAll(stmts, c, 0) ++ Seq(Return())
+
+    if (hasDuplicateLabel(code)) {
+      genMainMethodCode(stmts, c.copy(guid = c.guid + 1))
+    } else {
+      code
+    }
+  }
+
+  private def genCode(method: MethodDecl, c: Context): Seq[JVMInstruction] = {
+    val code = genAll(method.stmts, c, 0) ++
+      gen(method.returnVal, c, 1) +++
+      (method.typeName match {
+        case IntTypeNode(_) | BooleanTypeNode(_) => Ireturn()
+        case _ => Areturn()
+      })
+
+    if (hasDuplicateLabel(code)) {
+      genCode(method, c.copy(guid = c.guid + 1))
+    } else {
+      code
+    }
+  }
+
+  private def genMethod(method: MethodDecl, static: Boolean, context: Context): JVMMethod = {
+    val methodTable = context.symTable(context.currentClass.get.name).methods(method.name.name)
+    val c = context.copy(currentMethod = Some(methodTable))
+    val code = genCode(method, c)
+
+    JVMMethod(
+      name = method.name.name,
+      typeDesc = methodTypeDescriptor(method.argList.map(arg => typeOfNode(arg.typeName)), typeOfNode(method.typeName)),
+      static = static,
+      maxStack = StackDepthCalculator.maxStackDepth(code, context.symTable) + 1,
+      maxLocals = methodTable.params.size + methodTable.locals.size + 1,
+      code = code
+    )
+  }
+
+  private def typeDescriptor(t: Type): String = t match {
+    case ObjectType(name) => "L" + name + ";"
+    case IntType() => "I"
+    case IntArrayType() => "[I"
+    case BooleanType() => "I"
+    case VoidType() => "V"
+  }
+
+  private def methodTypeDescriptor(types: Seq[Type], returnType: Type): String =
+    "(" + types.map(typeDescriptor).mkString + ")" + typeDescriptor(returnType)
+
+  private def mainMethodTypeDescriptor = "([Ljava/lang/String;)V"
+
+  private def genAll(nodes: Seq[SyntaxTreeNode], c: Context, childNo: Int): Seq[JVMInstruction] = {
+    val newCtx = c.copy(guid = MurmurHash3.mix(c.guid, childNo))
+    nodes.zipWithIndex.flatMap({ case (n, i) => gen(n, newCtx, i) })
+  }
+
+  private def genBinaryOp(binOp: BinaryOp, instruction: JVMInstruction, c: Context) =
+    gen(binOp.leftOp, c, 0) ++ gen(binOp.rightOp, c, 1) +++ instruction
+
+  private def genComparisonOp(binOp: BinaryOp, compareInstr: Int => InstructionWithLabel, c: Context) = {
+    val setTrue = c.guid
+    val after = c.guid + 1
+
+    gen(binOp.leftOp, c, 0) ++
+    gen(binOp.rightOp, c, 1) +++
+    compareInstr(setTrue) +++
+    Iconst_0() +++
+    Goto(after) +++
+    Label(setTrue) +++
+    Iconst_1() +++
+    Label(after)
+  }
+
+  private def genShortCircuitOp(binOp: BinaryOp, compareInstr: Int => InstructionWithLabel, c: Context): Seq[JVMInstruction] = {
+    val label = c.guid
+    gen(binOp.leftOp, c, 0) +++
+    Dup() +++
+    compareInstr(label) +++
+    Pop() ++
+    gen(binOp.rightOp, c, 1) +++
+    Label(label)
+  }
+
+  private def genAssign(assignee: String, methodVar: Option[Var], c: Context): Seq[JVMInstruction] =
     methodVar match {
       case Some(value) => value match {
         case Var(_, IntType(), varNo) =>
-          asm(label) >> "istore " + varNo
+          Seq(Istore(varNo))
         case Var(_, BooleanType(), varNo) =>
-          asm(label) >> "istore " + varNo
+          Seq(Istore(varNo))
         case Var(_, _, varNo) =>
-          asm(label) >> "astore " + varNo
+          Seq(Astore(varNo))
       }
       case None =>
         val clazz = c.currentClass.get
         val type_ = clazz.fields(assignee).type_
-        val fieldDesc = clazz.name + "/" + assignee
         val typeDesc = typeDescriptor(type_)
-        asm(label) >> "aload_0" >> "swap" >> "putfield " + esc(fieldDesc) + " " + esc(typeDesc)
+        Seq(Aload_0(), Swap(), Putfield(clazz.name, assignee, typeDesc))
     }
 
-  private def gen(classDecl: MainClass, symTable: SymbolTable, sourceFile: String): JasminAssembly = {
-    val classTable = symTable(classDecl.name.name)
-    val methodTable = classTable.methods("main")
-    val context = Context(symTable, Some(classTable), Some(methodTable))
-    val maxStack = StackDepthCalculator.maxStackDepth(classDecl.stmts) + 1
-    val codeGenResult = asm(0) >>
-      ".source " + esc(sourceFile) >>
-      ".class public " + esc(classDecl.name.name) >>
-      ".super java/lang/Object" >>
-      ".method public static main([Ljava/lang/String;)V" >>
-      ".limit stack " + maxStack >>
-      ".limit locals " + (methodTable.params.size + methodTable.locals.size + 1) >>>
-      genAll(classDecl.varDecls, context) >>>
-      genAll(classDecl.stmts, context) >>
-      "return" >>
-      ".end method"
-
-    JasminAssembly(classDecl.name.name, codeGenResult.program)
+  private def gen(node: SyntaxTreeNode, c: Context, childNo: Int): Seq[JVMInstruction] = {
+    gen(node, c.copy(guid = MurmurHash3.mix(c.guid, childNo)))
   }
 
-  private def gen(classDecl: ClassDecl, symTable: SymbolTable, sourceFile: String): JasminAssembly = {
-    val context = Context(symTable, symTable.get(classDecl.name.name), None)
-    val codeGenResult = asm(0) >>
-      ".source " + esc(sourceFile) >>
-      ".class public " + esc(classDecl.name.name) >>
-      ".super java/lang/Object" >>
-      classDecl.varDecls.map(
-        v => ".field public " + esc(v.name.name) + " " + esc(typeDescriptor(typeOfNode(v.typeName)))).mkString("\n") >>
-      ".method public <init>()V" >>
-      ".limit stack 1" >>
-      ".limit locals 1" >>
-      "aload_0" >>
-      "invokespecial java/lang/Object/<init>()V" >>
-      "return" >>
-      ".end method" >>>
-      genAll(classDecl.methodDecls, context)
-
-    val b = ""
-
-    JasminAssembly(classDecl.name.name, codeGenResult.program)
-  }
-
-  private def gen(node: SyntaxTreeNode, c: Context)(label: Int): CodegenContext =
+  private def gen(node: SyntaxTreeNode, c: Context): Seq[JVMInstruction] =
     node match {
       case ArrayAssign(array, index, newValue, _) =>
-        asm(label) >>> gen(array, c) >>> gen(index, c) >>> gen(newValue, c) >> "iastore"
+        gen(array, c, 0) ++ gen(index, c, 1) ++ gen(newValue, c, 2) +++ Iastore()
 
       case Assign(Identifier(assignee, _), newValue, _) =>
         val method = c.currentMethod.get
         val methodVar = oneOf(method.locals.get(assignee), method.params.get(assignee))
-        asm(label) >>> gen(newValue, c) >>> genAssign(assignee, methodVar, c)
+        gen(newValue, c, 0) ++ genAssign(assignee, methodVar, c)
 
       case Block(stmtList, _) =>
-        asm(label) >>> genAll(stmtList, c)
-
-      case decl @ MethodDecl(type_, Identifier(name, _), argList, varDeclList, stmts, returnVal, _) =>
-        val methodTable = c.symTable(c.currentClass.get.name).methods(name)
-        val newContext = c.copy(currentMethod = Some(methodTable))
-        val argTypeList = argList.map(a => typeOfNode(a.typeName))
-        val methodDescr = methodDescriptor(name, argTypeList, methodTable.returnType)
-        val maxStack = StackDepthCalculator.maxStackDepth(decl) + 1
-        asm(label) >>
-          ".method public " + esc(methodDescr) >>
-          ".limit stack " + maxStack >>
-          ".limit locals " + (methodTable.params.size + methodTable.locals.size + 1) >>>
-          genAll(argList, newContext) >>>
-          genAll(varDeclList, newContext) >>>
-          genAll(stmts, newContext) >>>
-          gen(returnVal, newContext) >>
-          (type_ match {
-            case IntTypeNode(_) | BooleanTypeNode(_) => "ireturn"
-            case _ => "areturn"
-          }) >>
-          ".end method"
+        genAll(stmtList, c, 0)
 
       case While(condition, stmt, _) =>
-        val start = label
-        val after = label + 1
-        asm(label + 2) >>
-          l(start) + ":" >>>
-          gen(condition, c) >>
-          "ifeq " + l(after) >>>
-          gen(stmt, c) >>
-          "goto " + l(start) >>
-          l(after) + ":"
+        val start = c.guid
+        val after = c.guid + 1
+
+        Seq() +++
+        Label(start) ++
+        gen(condition, c, 0) +++
+        Ifeq(after) ++
+        gen(stmt, c, 1) +++
+        Goto(start) +++
+        Label(after)
 
       case Syso(printee, _) =>
         val printeeType = TypeChecker.getType(printee, c)
-        asm(label) >>
-          "getstatic java/lang/System/out Ljava/io/PrintStream;" >>>
-          gen(printee, c) >>>
-          (label =>
-            printeeType match {
-              case IntType() =>
-                asm(label) >>
-                  "invokevirtual java/io/PrintStream/println(I)V"
-              case _ =>
-                val falze = label
-                val after = label + 1
-                asm(label + 2) >>
-                  "ifeq " + l(falze) >>
-                  "ldc \"true\"" >>
-                  "goto " + l(after) >>
-                  l(falze) + ":" >>
-                  "ldc \"false\"" >>
-                  l(after) + ":" >>
-                  "invokevirtual java/io/PrintStream/println(Ljava/lang/String;)V"
-            })
+
+        Seq() +++
+        Getstatic("java/lang/System", "out", "Ljava/io/PrintStream;") ++
+        gen(printee, c, 0) ++
+        (printeeType match {
+            case IntType() =>
+              Seq(Invokevirtual("java/io/PrintStream", "println", "(I)V", 1))
+            case _ =>
+              val falze = c.guid
+              val after = c.guid + 1
+              Seq() +++
+              Ifeq(falze) +++
+              Ldc_wString("true") +++
+              Goto(after) +++
+              Label(falze) +++
+              Ldc_wString("false") +++
+              Label(after) +++
+              Invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V", 1)
+        })
 
       case If(condition, thenStmt, elseStmt, _) =>
-        val lbl = label
-        val after = label + 1
-        asm(label + 2) >>>
-          gen(condition, c) >>
-          "ifeq " + l(lbl) >>>
-          gen(thenStmt, c) >>
-          "goto " + l(after) >>
-          l(lbl) + ":" >>>
-          gen(elseStmt, c) >>
-          l(after) + ":"
+        val lbl = c.guid
+        val after = c.guid + 1
+
+        gen(condition, c, 0) +++
+        Ifeq(lbl) ++
+        gen(thenStmt, c, 1) +++
+        Goto(after) +++
+        Label(lbl) ++
+        gen(elseStmt, c, 2) +++
+        Label(after)
 
       case IfWithoutElse(condition, thenStmt, _) =>
-        val lbl = label
-        asm(label + 1) >>>
-          gen(condition, c) >>
-          "ifeq " + l(lbl) >>>
-          gen(thenStmt, c) >>
-          l(lbl) + ":"
+        val lbl = c.guid
+
+        gen(condition, c, 0) +++
+        Ifeq(lbl) ++
+        gen(thenStmt, c, 1) +++
+        Label(lbl)
 
       case p: Plus =>
-        asm(label) >>> genBinaryOp(p, "iadd", c)
+        genBinaryOp(p, Iadd(), c)
 
       case m: Minus =>
-        asm(label) >>> genBinaryOp(m, "isub", c)
+        genBinaryOp(m, Isub(), c)
 
       case g: GreaterThan =>
-        asm(label) >>> genComparisonOp(g, "if_icmpgt", c)
+        genComparisonOp(g, If_icmpgt, c)
 
       case g: GreaterOrEqualThan =>
-        asm(label) >>> genComparisonOp(g, "if_icmpge", c)
+        genComparisonOp(g, If_icmpge, c)
 
       case lt: LessThan =>
-        asm(label) >>> genComparisonOp(lt, "if_icmplt", c)
+        genComparisonOp(lt, If_icmplt, c)
 
       case leq: LessOrEqualThan =>
-        asm(label) >>> genComparisonOp(leq, "if_icmple", c)
+        genComparisonOp(leq, If_icmple, c)
 
       case m: Mult =>
-        asm(label) >>> genBinaryOp(m, "imul", c)
+        genBinaryOp(m, Imul(), c)
 
       case IntLit(value, _) =>
-        asm(label) >> "ldc " + value.toString
+        Seq(Ldc_wInt(value.toInt))
 
       case Not(e, _) =>
-        asm(label) >>> gen(e, c) >> "iconst_1" >> "ixor"
+        gen(e, c, 0) +++ Iconst_1() +++ Ixor()
 
       case NewArray(arraySize, _) =>
-        asm(label) >>> gen(arraySize, c) >> "newarray int"
+        gen(arraySize, c, 0) +++ New_array(10)
 
-      case NewObject(Identifier(typeName,_), _) =>
-        asm(label) >> "new " + esc(typeName) >> "dup" >> "invokespecial " + esc(typeName + "/<init>()V")
+      case NewObject(Identifier(typeName, _), _) =>
+        Seq(New(typeName), Dup(), Invokespecial(typeName, "<init>", "()V"))
 
       case ArrayLength(array, _) =>
-        asm(label) >>> gen(array, c) >> "arraylength"
+        gen(array, c, 0) +++ Array_length()
 
       case ArrayLookup(array, index, _) =>
-        asm(label) >>> gen(array, c) >>> gen(index, c) >> "iaload"
+        gen(array, c, 0) ++ gen(index, c, 1) +++ Iaload()
 
       case False(_) =>
-        asm(label) >> "iconst_0"
+        Seq(Iconst_0())
 
       case True(_) =>
-        asm(label) >> "iconst_1"
+        Seq(Iconst_1())
 
       case This(_) =>
-        asm(label) >> "aload_0"
+        Seq(Aload_0())
 
       case or: Or =>
-        asm(label) >>> genShortCircuitOp(or, "ifne", c)
+        genShortCircuitOp(or, Ifne, c)
 
       case and: And =>
-        asm(label) >>> genShortCircuitOp(and, "ifeq", c)
+        genShortCircuitOp(and, Ifeq, c)
 
       case MethodCall(obj, methodName, args, _) =>
         val objType = TypeChecker.getType(obj, c).asInstanceOf[ObjectType]
         val returnType = c.symTable(objType.name).methods(methodName.name).returnType
         val argTypeList = args.map(TypeChecker.getType(_, c))
-        val methodDesc = methodDescriptor(objType.name, methodName.name, argTypeList, returnType)
-        asm(label) >>> gen(obj, c) >>> genAll(args, c) >> "invokevirtual " + esc(methodDesc)
+        val typeDesc = methodTypeDescriptor(argTypeList, returnType)
+        gen(obj, c, 0) ++ genAll(args, c, 1) +++ Invokevirtual(objType.name, methodName.name, typeDesc, args.size)
 
-      case e @ Equal(_, rightOp, _) =>
+      case e@Equal(_, rightOp, _) =>
         val compareInstruct = TypeChecker.getType(rightOp, c) match {
-          case ObjectType(_) | IntArrayType() => "if_acmpeq"
-          case _ => "if_icmpeq"
+          case ObjectType(_) | IntArrayType() => If_acmpeq
+          case _ => If_icmpeq
         }
-        asm(label) >>> genComparisonOp(e, compareInstruct, c)
+        genComparisonOp(e, compareInstruct, c)
 
-      case ne @ NotEqual(_, rightOp, _) =>
+      case ne@NotEqual(_, rightOp, _) =>
         val compareInstruct = TypeChecker.getType(rightOp, c) match {
-          case ObjectType(_) | IntArrayType() => "if_acmpne"
-          case _ => "if_icmpne"
+          case ObjectType(_) | IntArrayType() => If_acmpne
+          case _ => If_icmpne
         }
-        asm(label) >>> genComparisonOp(ne, compareInstruct, c)
+        genComparisonOp(ne, compareInstruct, c)
 
       case Parens(e, _) =>
-        asm(label) >>> gen(e, c)
+        gen(e, c, 0)
 
       case Identifier(name, _) =>
         val method = c.currentMethod.get
@@ -305,20 +322,19 @@ object CodeGenerator {
         localVar match {
           case Some(value) => value match {
             case Var(_, IntType(), varNo) =>
-              asm(label) >> "iload " + varNo
+              Seq(Iload(varNo))
             case Var(_, BooleanType(), varNo) =>
-              asm(label) >> "iload " + varNo
+              Seq(Iload(varNo))
             case Var(_, _, varNo) =>
-              asm(label) >> "aload " + varNo
+              Seq(Aload(varNo))
           }
           case None =>
             val clazz = c.currentClass.get
             val type_ = clazz.fields(name).type_
-            val fieldDesc = clazz.name + "/" + name
             val typeDesc = typeDescriptor(type_)
-            asm(label) >> "aload_0" >> "getfield " + esc(fieldDesc) + " " + esc(typeDesc)
+            Seq(Aload_0(), Getfield(clazz.name, name, typeDesc))
         }
 
-      case _ => asm(label)
-    }
+      case _ => Seq()
+  }
 }
