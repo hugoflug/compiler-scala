@@ -10,7 +10,6 @@ object CodeGenerator {
 
   private implicit class XSeq[A](val x: Seq[A]) extends AnyVal {
     def +++[B >: A, That](elem: B) = x :+ elem
-    def hasDuplicates = x.groupBy(identity).exists(_._2.length > 1)
   }
 
   private def oneOf[T](options: Option[T]*): Option[T] =
@@ -31,7 +30,7 @@ object CodeGenerator {
         static = true,
         maxStack = StackDepthCalculator.maxStackDepth(classDecl.stmts) + 1,
         maxLocals = methodTable.params.size + methodTable.locals.size + 1,
-        code = genAll(classDecl.stmts, context, 0) ++ Seq(Return())
+        code = genMainMethodCode(classDecl.stmts, context)
       ))
     )
   }
@@ -61,6 +60,19 @@ object CodeGenerator {
   private def genField(varDecl: VarDecl) : JVMField =
     JVMField(varDecl.name.name, typeDescriptor(typeOfNode(varDecl.typeName)))
 
+  private def hasDuplicateLabel(nodes: Seq[JVMInstruction]): Boolean =
+    nodes.collect({ case Label(id) => id }).groupBy(identity).exists(_._2.length > 1)
+
+  private def genMainMethodCode(stmts: Seq[Stmt], c: Context): Seq[JVMInstruction] = {
+    val code = genAll(stmts, c, 0) ++ Seq(Return())
+
+    if (hasDuplicateLabel(code)) {
+      genMainMethodCode(stmts, c.copy(guid = c.guid + 1))
+    } else {
+      code
+    }
+  }
+
   private def genCode(method: MethodDecl, c: Context): Seq[JVMInstruction] = {
     val code = genAll(method.stmts, c, 0) ++
       gen(method.returnVal, c, 1) +++
@@ -69,7 +81,7 @@ object CodeGenerator {
         case _ => Areturn()
       })
 
-    if (code.collect({ case Label(id) => id }).hasDuplicates) {
+    if (hasDuplicateLabel(code)) {
       genCode(method, c.copy(guid = c.guid + 1))
     } else {
       code
@@ -159,7 +171,7 @@ object CodeGenerator {
   private def gen(node: SyntaxTreeNode, c: Context): Seq[JVMInstruction] =
     node match {
       case ArrayAssign(array, index, newValue, _) =>
-        gen(array, c, 0) ++ gen(index, c, 1) ++ gen(newValue, c, 2) :+ Iastore()
+        gen(array, c, 0) ++ gen(index, c, 1) ++ gen(newValue, c, 2) +++ Iastore()
 
       case Assign(Identifier(assignee, _), newValue, _) =>
         val method = c.currentMethod.get
