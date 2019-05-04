@@ -19,6 +19,7 @@ object CodeGenerator {
     val classTable = symTable(classDecl.name.name)
     val methodTable = classTable.methods("main")
     val context = Context(symTable, Some(classTable), Some(methodTable), 0)
+    val code = genMainMethodCode(classDecl.stmts, context)
 
     JVMClass(
       className = classDecl.name.name,
@@ -28,9 +29,9 @@ object CodeGenerator {
         name = "main",
         typeDesc = mainMethodTypeDescriptor,
         static = true,
-        maxStack = StackDepthCalculator.maxStackDepth(classDecl.stmts) + 1,
+        maxStack = StackDepthCalculator.maxStackDepth(code, symTable) + 1,
         maxLocals = methodTable.params.size + methodTable.locals.size + 1,
-        code = genMainMethodCode(classDecl.stmts, context)
+        code = code
       ))
     )
   }
@@ -91,14 +92,15 @@ object CodeGenerator {
   private def genMethod(method: MethodDecl, static: Boolean, context: Context): JVMMethod = {
     val methodTable = context.symTable(context.currentClass.get.name).methods(method.name.name)
     val c = context.copy(currentMethod = Some(methodTable))
+    val code = genCode(method, c)
 
     JVMMethod(
       name = method.name.name,
       typeDesc = methodTypeDescriptor(method.argList.map(arg => typeOfNode(arg.typeName)), typeOfNode(method.typeName)),
       static = static,
-      maxStack = StackDepthCalculator.maxStackDepth(method.stmts :+ method.returnVal) + 1,
+      maxStack = StackDepthCalculator.maxStackDepth(code, context.symTable) + 1,
       maxLocals = methodTable.params.size + methodTable.locals.size + 1,
-      code = genCode(method, c)
+      code = code
     )
   }
 
@@ -201,7 +203,7 @@ object CodeGenerator {
         gen(printee, c, 0) ++
         (printeeType match {
             case IntType() =>
-              Seq(Invokevirtual("java/io/PrintStream", "println", "(I)V"))
+              Seq(Invokevirtual("java/io/PrintStream", "println", "(I)V", 1))
             case _ =>
               val falze = c.guid
               val after = c.guid + 1
@@ -212,7 +214,7 @@ object CodeGenerator {
               Label(falze) +++
               Ldc_wString("false") +++
               Label(after) +++
-              Invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V")
+              Invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V", 1)
         })
 
       case If(condition, thenStmt, elseStmt, _) =>
@@ -294,7 +296,7 @@ object CodeGenerator {
         val returnType = c.symTable(objType.name).methods(methodName.name).returnType
         val argTypeList = args.map(TypeChecker.getType(_, c))
         val typeDesc = methodTypeDescriptor(argTypeList, returnType)
-        gen(obj, c, 0) ++ genAll(args, c, 1) +++ Invokevirtual(objType.name, methodName.name, typeDesc)
+        gen(obj, c, 0) ++ genAll(args, c, 1) +++ Invokevirtual(objType.name, methodName.name, typeDesc, args.size)
 
       case e@Equal(_, rightOp, _) =>
         val compareInstruct = TypeChecker.getType(rightOp, c) match {

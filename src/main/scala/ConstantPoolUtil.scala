@@ -69,7 +69,7 @@ object ConstantPoolUtil {
     NatEntry(ref, index, utf8Entries.find(_.ref.value == ref.name).get.index,
       utf8Entries.find(_.ref.value == ref.typeDesc).get.index)
 
-  /*private*/ def constantPoolEntries(refs: Set[ConstantPoolRef]): Set[ConstantPoolEntry] = {
+  private def constantPoolEntries(refs: Set[ConstantPoolRef]): Set[ConstantPoolEntry] = {
     val intRefs = refs.collect({ case i: IntRef => i })
     val utf8Refs = refs.collect({ case i: Utf8Ref => i })
     val stringRefs = refs.collect({ case i: StringRef => i })
