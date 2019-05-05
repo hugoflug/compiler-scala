@@ -1,12 +1,14 @@
 import ConstantPoolUtil.{ClassRef, ConstantPoolRef, FieldRef, IntRef, MethodRef, StringRef, Utf8Ref}
 import ByteUtils._
+import fs2.Pure
+import fs2.Stream
 
 object InstructionTable {
 
-  def mkBytes(instructions: Seq[JVMInstruction], cpIndex: Map[ConstantPoolRef, Int]) = {
+  def mkBytes(instructions: Seq[JVMInstruction], cpIndex: Map[ConstantPoolRef, Int]): Stream[Pure, Byte] = {
     val labelByteOffsets = labelOffsets(instructions)
 
-    val (bytes, _) = instructions.foldLeft((Array[Byte](), 0)) {
+    val (bytes, _) = instructions.foldLeft((Stream[Pure, Byte](), 0)) {
       case ((cBytes, offset), instruction) =>
         val instrBytes = mkBytes1(instruction, cpIndex, offset, labelByteOffsets)
         (cBytes ++ instrBytes, offset + instructionSize(instruction))
@@ -16,7 +18,7 @@ object InstructionTable {
   }
 
   private def mkBytes1(instruction: JVMInstruction, cpIndex: Map[ConstantPoolRef, Int], offset: Int,
-                      labelOffsets: Map[Int, Int]): Array[Byte] =
+                      labelOffsets: Map[Int, Int]): Stream[Pure, Byte] =
     instructionCode(instruction) ++ extraBytes(instruction, cpIndex, offset, labelOffsets)
 
   private def extraBytes(instruction: JVMInstruction, cpIndex: Map[ConstantPoolRef, Int], offset: Int,
@@ -49,7 +51,7 @@ object InstructionTable {
       case _ => "".hex
     }
 
-  private def instructionCode(instruction: JVMInstruction): Array[Byte] = instruction match {
+  private def instructionCode(instruction: JVMInstruction) = instruction match {
     case _: Goto => "a7".hex
     case _: Ifeq => "99".hex
     case _: If_icmpgt => "a3".hex

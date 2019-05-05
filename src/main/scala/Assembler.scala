@@ -3,6 +3,7 @@ import java.nio.charset.StandardCharsets
 import ConstantPoolUtil._
 import ByteUtils._
 import FileUtils.FileOutput
+import fs2.{Chunk, Pure, Stream}
 
 object Assembler {
   def assemble(clazz: JVMClass): FileOutput = {
@@ -25,6 +26,8 @@ object Assembler {
 
     FileOutput(clazz.className + ".class", content)
   }
+
+  private def fromArray[A](seq: Array[A]) = Stream(Chunk.array(seq)).flatMap(Stream.chunk)
   
   private type ConstantPoolIndex = Map[ConstantPoolRef, Int]
 
@@ -35,13 +38,13 @@ object Assembler {
   /* https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.4 */
   private def constantPool(entries: Seq[ConstantPoolEntry]) =
     (entries.length + 1).u2 ++
-    entries.toArray.flatMap(constantPoolEntry)
+    Stream.emits(entries).flatMap(constantPoolEntry)
 
-  private def constantPoolEntry(entry: ConstantPoolEntry) =
+  private def constantPoolEntry(entry: ConstantPoolEntry): Stream[Pure, Byte] =
     entry match {
       case Utf8Entry(Utf8Ref(s), _) =>
         val bytes = s.getBytes(StandardCharsets.UTF_8)
-        1.u1 ++ bytes.length.u2 ++ bytes
+        1.u1 ++ bytes.length.u2 ++ fromArray(bytes)
       case StringEntry(_, _, utf8Index) => 8.u1 ++ utf8Index.u2
       case IntEntry(IntRef(i), _) => 3.u1 ++ i.s4
       case ClassEntry(_, _, nameIndex) => 7.u1 ++ nameIndex.u2
@@ -62,7 +65,7 @@ object Assembler {
 
   private def fieldTable(fields: Seq[JVMField], cpIndex: ConstantPoolIndex) =
     fields.length.u2 ++
-    fields.flatMap(fieldInfo(_, cpIndex))
+    Stream.emits(fields).flatMap(fieldInfo(_, cpIndex))
 
   /* https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.5 */
   private def fieldInfo(field: JVMField, cpIndex: ConstantPoolIndex) =
@@ -76,7 +79,7 @@ object Assembler {
 
   private def methodTable(methods: Seq[JVMMethod], cpIndex: ConstantPoolIndex) =
     methods.length.u2 ++
-    methods.flatMap(methodInfo(_, cpIndex))
+    Stream.emits(methods).flatMap(methodInfo(_, cpIndex))
 
   /* https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.6 */
   private def methodInfo(method: JVMMethod, cpIndex: ConstantPoolIndex) =
@@ -97,20 +100,20 @@ object Assembler {
 
   /* https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.7.3 */
   private def methodCodeAttribute(method: JVMMethod, cpIndex: ConstantPoolIndex) = {
-    val body = methodCodeAttributeBody(method, cpIndex)
+    val body = methodCodeAttributeBody(method, cpIndex).toChunk
 
     cpIndex(Utf8Ref("Code")).u2 ++
-    body.length.u4 ++
-    body
+    body.size.u4 ++
+    Stream.chunk(body)
   }
 
   private def methodCodeAttributeBody(method: JVMMethod, cpIndex: ConstantPoolIndex) = {
-    val code = methodCode(method, cpIndex)
+    val code = methodCode(method, cpIndex).toChunk
 
     method.maxStack.u2 ++
     method.maxLocals.u2 ++
-    code.length.u4 ++
-    code ++
+    code.size.u4 ++
+    Stream.chunk(code) ++
     exceptionTable ++
     methodAttributesTable
   }
